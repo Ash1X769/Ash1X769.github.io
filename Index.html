@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ScienceSpark — AQA GCSE Science</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -463,7 +463,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 
 <script>
 const SUPABASE_URL='https://mfcuypbeahmmgfgkcjii.supabase.co';
-const SUPABASE_KEY='sb_publishable_6p24GY7URW1e3lyWyqfQkA_1F24xIa9';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mY3V5cGJlYWhtbWdmZ2tjamlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NTgwMjcsImV4cCI6MjA5NTEzNDAyN30.R81LB-efLyrQ33THf-IeBomnbaBoxAGgYArHzfy4RGo';
 const { createClient } = window.supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -613,13 +613,27 @@ async function signUp(){
   if(!name||!email||!password){showAuthError('Please fill in all fields.');return;}
   if(password.length<6){showAuthError('Password must be at least 6 characters.');return;}
   const btn=event.target;btn.disabled=true;btn.textContent='Creating account…';
-  const{error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year}}});
+  const{data,error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year}}});
   btn.disabled=false;btn.innerHTML='Create Account &#x2192;';
   if(error){showAuthError(error.message);return;}
-  // Update profile with name and year
-  if(db.auth.getUser){
-    showAuthSuccess('Account created! Signing you in…');
+  // Immediately update profile with name and year group
+  if(data&&data.user){
+    await db.from('profiles').upsert({
+      id:data.user.id,
+      email:email,
+      name:name,
+      year_group:year
+    },{onConflict:'id'});
   }
+  showAuthSuccess('Account created! ✅ Check your email for a confirmation link — it may be in your junk, spam or trash folder. Click the link to activate your account, then come back here and sign in.');
+  // Switch to sign in tab so they know to come back and sign in
+  setTimeout(()=>{
+    document.getElementById('signup-form').style.display='none';
+    document.getElementById('login-form').style.display='block';
+    document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector('.auth-tab').classList.add('active');
+    document.getElementById('login-email').value=email;
+  }, 3000);
 }
 
 async function signOut(){
@@ -639,10 +653,22 @@ async function onAuthStateChange(user){
     const{data:profile}=await db.from('profiles').select('*').eq('id',user.id).single();
     if(profile){
       userProfile=profile;
-      // Update name if set in metadata
+      // Update name if missing but available in metadata
       if(!profile.name&&user.user_metadata&&user.user_metadata.name){
-        await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group}).eq('id',user.id);
+        await db.from('profiles').update({
+          name:user.user_metadata.name,
+          year_group:user.user_metadata.year_group
+        }).eq('id',user.id);
+        userProfile.name=user.user_metadata.name;
       }
+    } else if(user.user_metadata&&user.user_metadata.name){
+      // Profile might not exist yet - create it
+      await db.from('profiles').upsert({
+        id:user.id,email:user.email,
+        name:user.user_metadata.name,
+        year_group:user.user_metadata.year_group
+      },{onConflict:'id'});
+      userProfile={name:user.user_metadata.name,year_group:user.user_metadata.year_group};
     }
     await loadFromSupabase();
     document.getElementById('auth-screen').style.display='none';
