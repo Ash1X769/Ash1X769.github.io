@@ -514,6 +514,10 @@ async function loadFromSupabase(){
     if(state.unlocks&&Object.keys(state.unlocks).length>0) APP.unlocks=state.unlocks;
     if(state.daily_new) APP.dailyNew=state.daily_new;
   }
+  // If unlocks haven't been saved to DB yet, save defaults now
+  if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
+    await saveAppState();
+  }
   // Load card progress
   const{data:progress}=await db.from('card_progress').select('*').eq('user_id',currentUser.id);
   if(progress){
