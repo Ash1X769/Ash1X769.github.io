@@ -518,6 +518,8 @@ async function loadFromSupabase(){
   if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
     saveAppState(); // non-blocking
   }
+  // Save default unlocks if first login
+  if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){saveAppState();}
   // Load card progress
   const{data:progress}=await db.from('card_progress').select('*').eq('user_id',currentUser.id);
   if(progress){
@@ -714,14 +716,7 @@ const isSubjectUnlocked=s=>TOPIC_ORDER[s].some(t=>isTopicUnlocked(s,t));
 function getTodayKey(){return new Date().toDateString();}
 function getDailyNewCount(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
 function incrementDailyNew(s){const t=getTodayKey();if(!APP.dailyNew[t])APP.dailyNew[t]={};APP.dailyNew[t][s]=(APP.dailyNew[t][s]||0)+1;saveAppState();}
-function getDoneToday(s){
-  const t=getTodayKey();
-  // Use dailyNew count (saved to Supabase) as proxy for cards done today
-  const newDone=(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;
-  // Add any reviews done today from current session
-  const sessionDone=session.subject===s?Object.keys(session.rated).filter(i=>session.rated[i]!==undefined).length:0;
-  return Math.max(newDone, sessionDone);
-}
+function getDoneToday(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
 
 function buildQueue(subject,bonusMode){
   const all=[];
@@ -773,14 +768,16 @@ function bold(t){return(t||'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');}
 function cleanQ(t){return(t||'').replace(/\s*\*\(\d+[^)]*\)\*/g,'').trim();}
 function fmtMs(ans){
   if(!ans)return '';
+  // Clean up any raw ** markdown artifacts first
+  ans = ans.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
   if(ans.includes('/')){
     const m=ans.match(/^(Any \d+ from:\s*|Accept:\s*)?(.+)$/i);
     if(m){
       const prefix=m[1]?'<div style="font-size:11px;font-weight:800;color:var(--indigo);margin-bottom:6px;text-transform:uppercase">'+m[1].trim()+'</div>':'';
-      return prefix+m[2].split(/\s*\/\s*/).map(o=>'<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+bold(o.trim())+'</span></div>').join('');
+      return prefix+m[2].split(/\s*\/\s*/).map(o=>'<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+o.trim()+'</span></div>').join('');
     }
   }
-  return '<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+bold(ans)+'</span></div>';
+  return '<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+ans+'</span></div>';
 }
 
 function showScreen(id){
@@ -793,7 +790,7 @@ function showScreen(id){
 }
 
 function updateHome(){
-  const name=userProfile&&userProfile.name?userProfile.name:'there';
+  const name=userProfile&&userProfile.name?userProfile.name.replace(/\s*\(teacher account\)\s*/i,'').trim():'there';
   document.getElementById('hero-name').textContent='Welcome back, '+name+'! Keep building that habit.';
   document.getElementById('nav-streak').textContent=APP.streak;
   document.getElementById('streak-days').textContent=APP.streak;
@@ -858,7 +855,7 @@ function startBonus(){
 function startSubjectSession(s){
   checkStreak();
   const q=buildQueue(s,false);
-  if(!q.length){alert('No cards available right now!');return;}
+  if(!q.length){return;} // silently do nothing - button should already be disabled
   session={cards:q,idx:0,good:0,xp:0,subject:s,bonusMode:false,rated:{}};
   showScreen('quiz');showCard();
 }
@@ -986,7 +983,7 @@ function showComplete(){
   const ub=document.getElementById('unlock-notice');
   if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
   else ub.style.display='none';
-  showScreen('complete');
+  setTimeout(()=>showScreen('complete'),300);
 }
 
 // ── TEACHER DASHBOARD ──
