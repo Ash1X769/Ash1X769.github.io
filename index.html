@@ -650,9 +650,12 @@ async function onAuthStateChange(user){
         await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group}).eq('id',user.id);
       }
     }
-    await loadFromSupabase();
+    // Show app immediately with defaults so grid renders
     document.getElementById('auth-screen').style.display='none';
     document.getElementById('main-app').style.display='block';
+    updateHome(); // render immediately with defaults
+    await loadFromSupabase(); // then load real data from Supabase
+    updateHome(); // re-render with real Supabase data
     // Update nav tabs for teacher
     if(isTeacher){
       document.querySelector('.nav-tabs').innerHTML=
