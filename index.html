@@ -518,10 +518,6 @@ async function loadFromSupabase(){
   if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
     saveAppState(); // no await - don't block page load
   }
-  // Save default unlocks if first login (non-blocking)
-  if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
-    saveAppState();
-  }
   // Load card progress
   const{data:progress}=await db.from('card_progress').select('*').eq('user_id',currentUser.id);
   if(progress){
@@ -743,10 +739,11 @@ const isSubjectUnlocked=s=>TOPIC_ORDER[s].some(t=>isTopicUnlocked(s,t));
 
 function getTodayKey(){return new Date().toDateString();}
 function getDailyNewCount(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
-function incrementDailyNew(s){const t=getTodayKey();if(!APP.dailyNew[t])APP.dailyNew[t]={};APP.dailyNew[t][s]=(APP.dailyNew[t][s]||0)+1;saveAppState();}
+function incrementDailyNew(s){const t=getTodayKey();if(!APP.dailyNew[t])APP.dailyNew[t]={};APP.dailyNew[t][s]=(APP.dailyNew[t][s]||0)+1;}
 function getDoneToday(s){
   const t=getTodayKey();
-  return (APP.dailyNew[t]&&APP.dailyNew[t][s])||0;
+  // Count from dailyNew + reviews done
+  return Object.keys(session.rated).filter(i=>session.cards[parseInt(i)]&&session.cards[parseInt(i)].subject===s).length||0;
 }
 
 function buildQueue(subject,bonusMode){
@@ -846,12 +843,12 @@ function updateHome(){
     const unlocked=isSubjectUnlocked(s);
     const isToday=s===todaySubj;
     const q=unlocked?buildQueue(s,false):[];
-    const doneToday=getDoneToday(s);
+    const doneToday=session.subject===s?Object.keys(session.rated).length:0;
     const total=q.length;
     const remaining=Math.max(0,total-doneToday);
     const allDone=doneToday>=total&&total>0;
     const card=document.createElement('div');
-    card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):' subj-locked');
+    card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):'  subj-locked');
     if(unlocked&&!allDone)card.onclick=()=>startSubjectSession(s);
     const pip=unlocked?'<div class="subj-big-pip '+(allDone?'all-done':'has-cards')+'">'+(allDone?'&#x2713;':remaining)+'</div>':'';
     const tag=isToday?'<div class="today-tag">TODAY</div>':'<div style="height:16px"></div>';
