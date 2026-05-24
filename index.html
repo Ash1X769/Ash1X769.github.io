@@ -497,7 +497,7 @@ let APP={
     chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},
     physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}
   },
-  dailyNew:{}
+  dailyNew:{},dailyTotal:{}
 };
 let cardStates={};
 
@@ -513,6 +513,7 @@ async function loadFromSupabase(){
     APP.totalCards=state.total_cards||0;
     if(state.unlocks&&Object.keys(state.unlocks).length>0) APP.unlocks=state.unlocks;
     if(state.daily_new) APP.dailyNew=state.daily_new;
+    if(state.daily_total) APP.dailyTotal=state.daily_total;
   }
   // Save default unlocks if first login
   if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
@@ -541,6 +542,7 @@ async function saveAppState(){
     total_cards:APP.totalCards,
     unlocks:APP.unlocks,
     daily_new:APP.dailyNew,
+    daily_total:APP.dailyTotal,
     updated_at:new Date().toISOString()
   },{onConflict:'user_id'});
 }
@@ -629,7 +631,7 @@ async function signUp(){
 async function signOut(){
   await db.auth.signOut();
   currentUser=null;userProfile=null;isTeacher=false;
-  APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{}};
+  APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
   cardStates={};
   document.getElementById('main-app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
@@ -648,9 +650,12 @@ async function onAuthStateChange(user){
         await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group}).eq('id',user.id);
       }
     }
-    await loadFromSupabase();
+    // Show app immediately with defaults so grid renders
     document.getElementById('auth-screen').style.display='none';
     document.getElementById('main-app').style.display='block';
+    updateHome(); // render immediately with defaults
+    await loadFromSupabase(); // then load real data from Supabase
+    updateHome(); // re-render with real Supabase data
     // Update nav tabs for teacher
     if(isTeacher){
       document.querySelector('.nav-tabs').innerHTML=
@@ -714,14 +719,11 @@ const isSubjectUnlocked=s=>TOPIC_ORDER[s].some(t=>isTopicUnlocked(s,t));
 function getTodayKey(){return new Date().toDateString();}
 function getDailyNewCount(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
 function incrementDailyNew(s){const t=getTodayKey();if(!APP.dailyNew[t])APP.dailyNew[t]={};APP.dailyNew[t][s]=(APP.dailyNew[t][s]||0)+1;saveAppState();}
-function getDoneToday(s){
-  const t=getTodayKey();
-  // Use dailyNew count (saved to Supabase) as proxy for cards done today
-  const newDone=(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;
-  // Add any reviews done today from current session
-  const sessionDone=session.subject===s?Object.keys(session.rated).filter(i=>session.rated[i]!==undefined).length:0;
-  return Math.max(newDone, sessionDone);
-}
+function getDoneToday(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
+
+// Track ALL cards done today (reviews + new) for "all done" UI
+function incrementDailyTotal(s){const t=getTodayKey();if(!APP.dailyTotal)APP.dailyTotal={};if(!APP.dailyTotal[t])APP.dailyTotal[t]={};APP.dailyTotal[t][s]=(APP.dailyTotal[t][s]||0)+1;}
+function getTotalDoneToday(s){const t=getTodayKey();return(APP.dailyTotal&&APP.dailyTotal[t]&&APP.dailyTotal[t][s])||0;}
 
 function buildQueue(subject,bonusMode){
   const all=[];
@@ -760,12 +762,10 @@ function checkStreak(){
 
 function recalcStreak(){
   const today=getTodayKey(),yesterday=new Date(Date.now()-86400000).toDateString();
-  // If studied today but streak is 0 or lastStudy not set
-  const studiedToday=APP.lastStudy===today;
-  const studiedYesterday=APP.lastStudy===yesterday;
-  if(!studiedToday&&!studiedYesterday&&APP.streak>0&&APP.lastStudy!==today){
-    // Check if streak is broken (more than 1 day since last study)
-    // Keep streak as is since we loaded from DB
+  if(APP.lastStudy&&APP.lastStudy!==today&&APP.lastStudy!==yesterday&&APP.streak>0){
+    // More than 1 day since last study — streak is broken
+    APP.streak=0;
+    saveAppState();
   }
 }
 
@@ -773,14 +773,16 @@ function bold(t){return(t||'').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');}
 function cleanQ(t){return(t||'').replace(/\s*\*\(\d+[^)]*\)\*/g,'').trim();}
 function fmtMs(ans){
   if(!ans)return '';
+  // Clean up any raw ** markdown artifacts first
+  ans = ans.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
   if(ans.includes('/')){
     const m=ans.match(/^(Any \d+ from:\s*|Accept:\s*)?(.+)$/i);
     if(m){
       const prefix=m[1]?'<div style="font-size:11px;font-weight:800;color:var(--indigo);margin-bottom:6px;text-transform:uppercase">'+m[1].trim()+'</div>':'';
-      return prefix+m[2].split(/\s*\/\s*/).map(o=>'<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+bold(o.trim())+'</span></div>').join('');
+      return prefix+m[2].split(/\s*\/\s*/).map(o=>'<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+o.trim()+'</span></div>').join('');
     }
   }
-  return '<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+bold(ans)+'</span></div>';
+  return '<div class="exam-ms-opt"><span class="tick">&#x2713;</span><span>'+ans+'</span></div>';
 }
 
 function showScreen(id){
@@ -793,7 +795,7 @@ function showScreen(id){
 }
 
 function updateHome(){
-  const name=userProfile&&userProfile.name?userProfile.name:'there';
+  const name=userProfile&&userProfile.name?userProfile.name.replace(/\s*\(teacher account\)\s*/i,'').trim():'there';
   document.getElementById('hero-name').textContent='Welcome back, '+name+'! Keep building that habit.';
   document.getElementById('nav-streak').textContent=APP.streak;
   document.getElementById('streak-days').textContent=APP.streak;
@@ -820,10 +822,10 @@ function updateHome(){
     const unlocked=isSubjectUnlocked(s);
     const isToday=s===todaySubj;
     const q=unlocked?buildQueue(s,false):[];
-    const doneToday=getDoneToday(s);
+    const doneToday=getTotalDoneToday(s);
     const total=q.length;
-    const remaining=Math.max(0,total-doneToday);
-    const allDone=doneToday>=total&&total>0;
+    const remaining=total;
+    const allDone=total===0&&doneToday>0;
     const card=document.createElement('div');
     card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):' subj-locked');
     if(unlocked&&!allDone)card.onclick=()=>startSubjectSession(s);
@@ -858,7 +860,7 @@ function startBonus(){
 function startSubjectSession(s){
   checkStreak();
   const q=buildQueue(s,false);
-  if(!q.length){alert('No cards available right now!');return;}
+  if(!q.length){return;} // silently do nothing - button should already be disabled
   session={cards:q,idx:0,good:0,xp:0,subject:s,bonusMode:false,rated:{}};
   showScreen('quiz');showCard();
 }
@@ -962,6 +964,7 @@ function rateCard(grade){
   if(grade>=2)session.good++;
   session.rated[session.idx]=grade;
   if(card._isNew)incrementDailyNew(card.subject);
+  incrementDailyTotal(card.subject);
   saveAppState();
   saveDailyActivity(card.subject);
   document.getElementById('nav-streak').textContent=APP.streak;
@@ -986,7 +989,7 @@ function showComplete(){
   const ub=document.getElementById('unlock-notice');
   if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
   else ub.style.display='none';
-  showScreen('complete');
+  setTimeout(()=>showScreen('complete'),300);
 }
 
 // ── TEACHER DASHBOARD ──
