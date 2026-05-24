@@ -488,6 +488,7 @@ const TEACHER_EMAIL='offside_gulper_8m@icloud.com';
 let currentUser=null;
 let userProfile=null;
 let isTeacher=false;
+let supabaseLoaded=false;
 
 // ── IN-MEMORY STATE (synced to Supabase) ──
 let APP={
@@ -534,19 +535,18 @@ async function loadFromSupabase(){
 
 async function saveAppState(){
   if(!currentUser) return;
-  const payload={
-    user_id:currentUser.id,
-    streak:APP.streak,
-    last_study:APP.lastStudy,
-    xp:APP.xp,
-    total_cards:APP.totalCards,
-    unlocks:APP.unlocks,
-    daily_new:APP.dailyNew,
-    updated_at:new Date().toISOString()
-  };
-  // Try to include daily_total if it exists in DB (added later)
-  try{ payload.daily_total=APP.dailyTotal; }catch(e){}
-  await db.from('app_state').upsert(payload,{onConflict:'user_id'});
+  try{
+    await db.from('app_state').upsert({
+      user_id:currentUser.id,
+      streak:APP.streak,
+      last_study:APP.lastStudy,
+      xp:APP.xp,
+      total_cards:APP.totalCards,
+      unlocks:APP.unlocks,
+      daily_new:APP.dailyNew,
+      updated_at:new Date().toISOString()
+    },{onConflict:'user_id'});
+  }catch(e){console.error('saveAppState failed:',e);}
 }
 
 async function saveCardState(cardId,state,card){
@@ -634,6 +634,7 @@ async function signUp(){
 
 async function signOut(){
   await db.auth.signOut();
+  supabaseLoaded=false;
   currentUser=null;userProfile=null;isTeacher=false;
   APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
   cardStates={};
@@ -657,9 +658,12 @@ async function onAuthStateChange(user){
     // Show app immediately with defaults so grid renders
     document.getElementById('auth-screen').style.display='none';
     document.getElementById('main-app').style.display='block';
-    updateHome(); // render immediately with defaults
-    await loadFromSupabase(); // then load real data from Supabase
-    updateHome(); // re-render with real Supabase data
+    updateHome();
+    if(!supabaseLoaded){
+      await loadFromSupabase();
+      supabaseLoaded=true;
+    }
+    updateHome();
     // Update nav tabs for teacher
     if(isTeacher){
       document.querySelector('.nav-tabs').innerHTML=
@@ -827,10 +831,9 @@ function updateHome(){
     const unlocked=isSubjectUnlocked(s);
     const isToday=s===todaySubj;
     const q=unlocked?buildQueue(s,false):[];
-    const doneToday=getTotalDoneToday(s);
     const total=q.length;
     const remaining=total;
-    const allDone=total===0&&doneToday>0;
+    const allDone=unlocked&&total===0;
     const card=document.createElement('div');
     card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):' subj-locked');
     if(unlocked&&!allDone)card.onclick=()=>startSubjectSession(s);
