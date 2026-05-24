@@ -899,7 +899,7 @@ function showCard(){
   examOpen=false;
   const card=session.cards[session.idx];
   const subj=SUBJECTS[card.subject];
-  const pct=Math.round(session.idx/session.cards.length*100);
+  const pct=Math.round((session.idx+1)/session.cards.length*100);
   document.getElementById('qp-fill').style.width=pct+'%';
   document.getElementById('q-cnt').textContent=(session.idx+1)+'/'+session.cards.length;
   const stag=document.getElementById('q-stag');
@@ -968,11 +968,9 @@ function rateCard(grade){
   saveAppState();
   saveDailyActivity(card.subject);
   document.getElementById('nav-streak').textContent=APP.streak;
-  const nextUnrated=session.cards.findIndex((c,i)=>i>session.idx&&session.rated[i]===undefined);
-  if(nextUnrated===-1){
-    if(session.cards.every((_,i)=>session.rated[i]!==undefined))showComplete();
-    else{session.idx++;showCard();}
-  } else {session.idx=nextUnrated;showCard();}
+  const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
+  if(nextUnrated===-1)showComplete();
+  else{session.idx=nextUnrated;showCard();}
 }
 
 function showComplete(){
