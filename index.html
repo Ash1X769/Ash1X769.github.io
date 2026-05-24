@@ -613,13 +613,19 @@ async function signUp(){
   if(!name||!email||!password){showAuthError('Please fill in all fields.');return;}
   if(password.length<6){showAuthError('Password must be at least 6 characters.');return;}
   const btn=event.target;btn.disabled=true;btn.textContent='Creating account…';
-  const{error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year}}});
+  const{data,error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year}}});
   btn.disabled=false;btn.innerHTML='Create Account &#x2192;';
   if(error){showAuthError(error.message);return;}
-  // Update profile with name and year
-  if(db.auth.getUser){
-    showAuthSuccess('Account created! Signing you in…');
+  // Immediately update profile with name and year group
+  if(data&&data.user){
+    await db.from('profiles').upsert({
+      id:data.user.id,
+      email:email,
+      name:name,
+      year_group:year
+    },{onConflict:'id'});
   }
+  showAuthSuccess('Account created! Signing you in…');
 }
 
 async function signOut(){
@@ -639,10 +645,22 @@ async function onAuthStateChange(user){
     const{data:profile}=await db.from('profiles').select('*').eq('id',user.id).single();
     if(profile){
       userProfile=profile;
-      // Update name if set in metadata
+      // Update name if missing but available in metadata
       if(!profile.name&&user.user_metadata&&user.user_metadata.name){
-        await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group}).eq('id',user.id);
+        await db.from('profiles').update({
+          name:user.user_metadata.name,
+          year_group:user.user_metadata.year_group
+        }).eq('id',user.id);
+        userProfile.name=user.user_metadata.name;
       }
+    } else if(user.user_metadata&&user.user_metadata.name){
+      // Profile might not exist yet - create it
+      await db.from('profiles').upsert({
+        id:user.id,email:user.email,
+        name:user.user_metadata.name,
+        year_group:user.user_metadata.year_group
+      },{onConflict:'id'});
+      userProfile={name:user.user_metadata.name,year_group:user.user_metadata.year_group};
     }
     await loadFromSupabase();
     document.getElementById('auth-screen').style.display='none';
