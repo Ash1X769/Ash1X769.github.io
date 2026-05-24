@@ -463,7 +463,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 
 <script>
 const SUPABASE_URL='https://mfcuypbeahmmgfgkcjii.supabase.co';
-const SUPABASE_KEY='sb_publishable_6p24GY7URW1e3lyWyqfQkA_1F24xIa9';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mY3V5cGJlYWhtbWdmZ2tjamlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NTgwMjcsImV4cCI6MjA5NTEzNDAyN30.R81LB-efLyrQ33THf-IeBomnbaBoxAGgYArHzfy4RGo';
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -513,6 +513,10 @@ async function loadFromSupabase(){
     APP.totalCards=state.total_cards||0;
     if(state.unlocks&&Object.keys(state.unlocks).length>0) APP.unlocks=state.unlocks;
     if(state.daily_new) APP.dailyNew=state.daily_new;
+  }
+  // Save default unlocks if first login
+  if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
+    saveAppState(); // non-blocking
   }
   // Load card progress
   const{data:progress}=await db.from('card_progress').select('*').eq('user_id',currentUser.id);
@@ -709,11 +713,14 @@ const isSubjectUnlocked=s=>TOPIC_ORDER[s].some(t=>isTopicUnlocked(s,t));
 
 function getTodayKey(){return new Date().toDateString();}
 function getDailyNewCount(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
-function incrementDailyNew(s){const t=getTodayKey();if(!APP.dailyNew[t])APP.dailyNew[t]={};APP.dailyNew[t][s]=(APP.dailyNew[t][s]||0)+1;}
+function incrementDailyNew(s){const t=getTodayKey();if(!APP.dailyNew[t])APP.dailyNew[t]={};APP.dailyNew[t][s]=(APP.dailyNew[t][s]||0)+1;saveAppState();}
 function getDoneToday(s){
   const t=getTodayKey();
-  // Count from dailyNew + reviews done
-  return Object.keys(session.rated).filter(i=>session.cards[parseInt(i)]&&session.cards[parseInt(i)].subject===s).length||0;
+  // Use dailyNew count (saved to Supabase) as proxy for cards done today
+  const newDone=(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;
+  // Add any reviews done today from current session
+  const sessionDone=session.subject===s?Object.keys(session.rated).filter(i=>session.rated[i]!==undefined).length:0;
+  return Math.max(newDone, sessionDone);
 }
 
 function buildQueue(subject,bonusMode){
@@ -813,12 +820,12 @@ function updateHome(){
     const unlocked=isSubjectUnlocked(s);
     const isToday=s===todaySubj;
     const q=unlocked?buildQueue(s,false):[];
-    const doneToday=session.subject===s?Object.keys(session.rated).length:0;
+    const doneToday=getDoneToday(s);
     const total=q.length;
     const remaining=Math.max(0,total-doneToday);
     const allDone=doneToday>=total&&total>0;
     const card=document.createElement('div');
-    card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):'  subj-locked');
+    card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):' subj-locked');
     if(unlocked&&!allDone)card.onclick=()=>startSubjectSession(s);
     const pip=unlocked?'<div class="subj-big-pip '+(allDone?'all-done':'has-cards')+'">'+(allDone?'&#x2713;':remaining)+'</div>':'';
     const tag=isToday?'<div class="today-tag">TODAY</div>':'<div style="height:16px"></div>';
