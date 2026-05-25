@@ -659,34 +659,31 @@ async function signOut(){
 
 async function onAuthStateChange(user){
   if(user){
+    const isFirstLoad=!currentUser||(currentUser.id!==user.id);
     currentUser=user;
     isTeacher=(user.email===TEACHER_EMAIL);
-    // Load profile
     const{data:profile}=await db.from('profiles').select('*').eq('id',user.id).single();
     if(profile){
       userProfile=profile;
-      // Update name if set in metadata
       if(!profile.name&&user.user_metadata&&user.user_metadata.name){
         await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group}).eq('id',user.id);
       }
     }
-    // Show app immediately with defaults so grid renders
-    document.getElementById('auth-screen').style.display='none';
-    document.getElementById('main-app').style.display='block';
-    updateHome();
     if(!supabaseLoaded){
+      document.getElementById('auth-screen').style.display='none';
+      document.getElementById('main-app').style.display='block';
+      updateHome();
       await loadFromSupabase();
       supabaseLoaded=true;
+      if(isTeacher){
+        document.querySelector('.nav-tabs').innerHTML=
+          '<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+
+          '<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
+      }
+      showScreen('home');
+      updateHome();
     }
-    updateHome();
-    // Update nav tabs for teacher
-    if(isTeacher){
-      document.querySelector('.nav-tabs').innerHTML=
-        '<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+
-        '<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
-    }
-    showScreen('home');
-    updateHome();
+    // Token refresh — just silently update currentUser, don't disrupt the UI
   } else {
     document.getElementById('main-app').style.display='none';
     document.getElementById('auth-screen').style.display='flex';
@@ -1008,43 +1005,49 @@ function toggleExamCard(){
 function rateCard(grade){
   const card=session.cards[session.idx];
   if(!card||session.rated[session.idx]!==undefined)return;
+
+  // ── 1. Update session state immediately — NEVER inside try-catch ──
+  session.rated[session.idx]=grade;
+  if(grade>=2)session.good++;
+  const xp=[5,8,12,18][grade];
+  session.xp+=xp;APP.xp+=xp;APP.totalCards++;
+
+  // ── 2. Persist to Supabase — allowed to fail silently ──
   try{
     const newState=sm2({...getCardState(card.id),seenAt:Date.now()},grade);
     saveCardState(card.id,newState,card);
-    const xp=[5,8,12,18][grade];
-    session.xp+=xp;APP.xp+=xp;APP.totalCards++;
-    if(grade>=2)session.good++;
-    session.rated[session.idx]=grade;
     if(card._isNew)incrementDailyNew(card.subject);
     incrementDailyTotal(card.subject);
     saveAppState();
     saveDailyActivity(card.subject);
     document.getElementById('nav-streak').textContent=APP.streak;
-  }catch(e){console.error('rateCard error:',e);}
-  // Always advance — do this outside try/catch so it can't be blocked
+  }catch(e){console.error('rateCard save error:',e);}
+
+  // ── 3. Advance ──
   const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
   if(nextUnrated===-1)showComplete();
   else{session.idx=nextUnrated;showCard();}
 }
 
 function showComplete(){
+  todayDone[session.subject]=true;
+  const total=session.cards.length;
+  const pct=total>0?Math.round(session.good/total*100):0;
+  document.getElementById('comp-cards').textContent=total;
+  document.getElementById('comp-correct').textContent=session.good;
+  document.getElementById('comp-xp').textContent='+'+session.xp;
+  document.getElementById('comp-streak').textContent=APP.streak;
+  document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
+  document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
+  document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
   try{
-    todayDone[session.subject]=true;
-    const total=Object.keys(session.rated).length;
-    const pct=total>0?Math.round(session.good/total*100):0;
-    document.getElementById('comp-cards').textContent=total;
-    document.getElementById('comp-correct').textContent=session.good;
-    document.getElementById('comp-xp').textContent='+'+session.xp;
-    document.getElementById('comp-streak').textContent=APP.streak;
-    document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
-    document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
-    document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
     const newUnlocks=checkAutoUnlocks();
     const ub=document.getElementById('unlock-notice');
     if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
     else ub.style.display='none';
-  }catch(e){console.error('showComplete error:',e);}
+  }catch(e){console.error('unlock check error:',e);}
   showScreen('complete');
+  updateHome();
 }
 
 // ── TEACHER DASHBOARD ──
