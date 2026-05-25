@@ -488,6 +488,7 @@ const TEACHER_EMAIL='offside_gulper_8m@icloud.com';
 let currentUser=null;
 let userProfile=null;
 let isTeacher=false;
+let supabaseLoaded=false;
 
 // ── IN-MEMORY STATE (synced to Supabase) ──
 let APP={
@@ -534,17 +535,18 @@ async function loadFromSupabase(){
 
 async function saveAppState(){
   if(!currentUser) return;
-  await db.from('app_state').upsert({
-    user_id:currentUser.id,
-    streak:APP.streak,
-    last_study:APP.lastStudy,
-    xp:APP.xp,
-    total_cards:APP.totalCards,
-    unlocks:APP.unlocks,
-    daily_new:APP.dailyNew,
-    daily_total:APP.dailyTotal,
-    updated_at:new Date().toISOString()
-  },{onConflict:'user_id'});
+  try{
+    await db.from('app_state').upsert({
+      user_id:currentUser.id,
+      streak:APP.streak,
+      last_study:APP.lastStudy,
+      xp:APP.xp,
+      total_cards:APP.totalCards,
+      unlocks:APP.unlocks,
+      daily_new:APP.dailyNew,
+      updated_at:new Date().toISOString()
+    },{onConflict:'user_id'});
+  }catch(e){console.error('saveAppState failed:',e);}
 }
 
 async function saveCardState(cardId,state,card){
@@ -567,14 +569,16 @@ async function saveCardState(cardId,state,card){
 
 async function saveDailyActivity(subject){
   if(!currentUser) return;
-  const date=getTodayKey();
-  await db.from('daily_activity').upsert({
-    user_id:currentUser.id,
-    date:date,
-    subject:subject,
-    cards_done:(APP.dailyNew[date]&&APP.dailyNew[date][subject])||0,
-    updated_at:new Date().toISOString()
-  },{onConflict:'user_id,date,subject'});
+  try{
+    const date=getTodayKey();
+    await db.from('daily_activity').upsert({
+      user_id:currentUser.id,
+      date:date,
+      subject:subject,
+      cards_done:(APP.dailyNew[date]&&APP.dailyNew[date][subject])||0,
+      updated_at:new Date().toISOString()
+    },{onConflict:'user_id,date,subject'});
+  }catch(e){console.warn('daily_activity save failed (table may not exist):',e);}
 }
 
 // ── AUTH ──
@@ -630,6 +634,7 @@ async function signUp(){
 
 async function signOut(){
   await db.auth.signOut();
+  supabaseLoaded=false;
   currentUser=null;userProfile=null;isTeacher=false;
   APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
   cardStates={};
@@ -653,9 +658,12 @@ async function onAuthStateChange(user){
     // Show app immediately with defaults so grid renders
     document.getElementById('auth-screen').style.display='none';
     document.getElementById('main-app').style.display='block';
-    updateHome(); // render immediately with defaults
-    await loadFromSupabase(); // then load real data from Supabase
-    updateHome(); // re-render with real Supabase data
+    updateHome();
+    if(!supabaseLoaded){
+      await loadFromSupabase();
+      supabaseLoaded=true;
+    }
+    updateHome();
     // Update nav tabs for teacher
     if(isTeacher){
       document.querySelector('.nav-tabs').innerHTML=
@@ -788,6 +796,7 @@ function fmtMs(ans){
 function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+id).classList.add('active');
+  window.scrollTo(0,0);
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   if(['home','topics','quiz','complete'].includes(id))document.querySelector('.nav-tab').classList.add('active');
   if(id==='dashboard'){document.querySelectorAll('.nav-tab')[1].classList.add('active');renderDashboard();}
@@ -822,10 +831,9 @@ function updateHome(){
     const unlocked=isSubjectUnlocked(s);
     const isToday=s===todaySubj;
     const q=unlocked?buildQueue(s,false):[];
-    const doneToday=getTotalDoneToday(s);
     const total=q.length;
     const remaining=total;
-    const allDone=total===0&&doneToday>0;
+    const allDone=unlocked&&(total===0||todayDone[s]===true);
     const card=document.createElement('div');
     card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):' subj-locked');
     if(unlocked&&!allDone)card.onclick=()=>startSubjectSession(s);
@@ -835,7 +843,7 @@ function updateHome(){
     grid.appendChild(card);
   });
   const q=buildQueue(todaySubj,false);
-  const rem=q.length;
+  const rem=todayDone[todaySubj]?0:q.length;
   const btn=document.getElementById('start-btn');
   btn.textContent=rem>0?'📚 Start '+info.label+' — '+rem+' cards':'✓ All done for today!';
   btn.disabled=rem===0;
@@ -848,6 +856,7 @@ function updateHome(){
 // ── SESSION ──
 let session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
 let examOpen=false;
+let todayDone={}; // tracks which subjects were completed this session
 
 function startTodaySession(){startSubjectSession(getTodaySubject());}
 function startBonus(){
@@ -899,7 +908,7 @@ function showCard(){
   examOpen=false;
   const card=session.cards[session.idx];
   const subj=SUBJECTS[card.subject];
-  const pct=Math.round(session.idx/session.cards.length*100);
+  const pct=Math.round((session.idx+1)/session.cards.length*100);
   document.getElementById('qp-fill').style.width=pct+'%';
   document.getElementById('q-cnt').textContent=(session.idx+1)+'/'+session.cards.length;
   const stag=document.getElementById('q-stag');
@@ -956,40 +965,43 @@ function toggleExamCard(){
 
 function rateCard(grade){
   const card=session.cards[session.idx];
-  if(session.rated[session.idx]!==undefined)return;
-  const newState=sm2({...getCardState(card.id),seenAt:Date.now()},grade);
-  saveCardState(card.id,newState,card);
-  const xp=[5,8,12,18][grade];
-  session.xp+=xp;APP.xp+=xp;APP.totalCards++;
-  if(grade>=2)session.good++;
-  session.rated[session.idx]=grade;
-  if(card._isNew)incrementDailyNew(card.subject);
-  incrementDailyTotal(card.subject);
-  saveAppState();
-  saveDailyActivity(card.subject);
-  document.getElementById('nav-streak').textContent=APP.streak;
-  const nextUnrated=session.cards.findIndex((c,i)=>i>session.idx&&session.rated[i]===undefined);
-  if(nextUnrated===-1){
-    if(session.cards.every((_,i)=>session.rated[i]!==undefined))showComplete();
-    else{session.idx++;showCard();}
-  } else {session.idx=nextUnrated;showCard();}
+  if(!card||session.rated[session.idx]!==undefined)return;
+  try{
+    const newState=sm2({...getCardState(card.id),seenAt:Date.now()},grade);
+    saveCardState(card.id,newState,card);
+    const xp=[5,8,12,18][grade];
+    session.xp+=xp;APP.xp+=xp;APP.totalCards++;
+    if(grade>=2)session.good++;
+    session.rated[session.idx]=grade;
+    if(card._isNew)incrementDailyNew(card.subject);
+    incrementDailyTotal(card.subject);
+    saveAppState();
+    saveDailyActivity(card.subject);
+    document.getElementById('nav-streak').textContent=APP.streak;
+  }catch(e){console.error('rateCard error:',e);}
+  // Always advance — do this outside try/catch so it can't be blocked
+  const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
+  if(nextUnrated===-1)showComplete();
+  else{session.idx=nextUnrated;showCard();}
 }
 
 function showComplete(){
-  const total=Object.keys(session.rated).length;
-  const pct=total>0?Math.round(session.good/total*100):0;
-  document.getElementById('comp-cards').textContent=total;
-  document.getElementById('comp-correct').textContent=session.good;
-  document.getElementById('comp-xp').textContent='+'+session.xp;
-  document.getElementById('comp-streak').textContent=APP.streak;
-  document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
-  document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
-  document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
-  const newUnlocks=checkAutoUnlocks();
-  const ub=document.getElementById('unlock-notice');
-  if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
-  else ub.style.display='none';
-  setTimeout(()=>showScreen('complete'),300);
+  try{
+    todayDone[session.subject]=true;
+    const pct=total>0?Math.round(session.good/total*100):0;
+    document.getElementById('comp-cards').textContent=total;
+    document.getElementById('comp-correct').textContent=session.good;
+    document.getElementById('comp-xp').textContent='+'+session.xp;
+    document.getElementById('comp-streak').textContent=APP.streak;
+    document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
+    document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
+    document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
+    const newUnlocks=checkAutoUnlocks();
+    const ub=document.getElementById('unlock-notice');
+    if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
+    else ub.style.display='none';
+  }catch(e){console.error('showComplete error:',e);}
+  showScreen('complete');
 }
 
 // ── TEACHER DASHBOARD ──
