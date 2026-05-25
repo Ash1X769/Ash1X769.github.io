@@ -334,7 +334,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
     </div>
     <div class="subject-grid" id="subject-grid"></div>
     <button class="start-today" id="start-btn" onclick="startTodaySession()">&#x1F4DA; Start Today's Cards</button>
-    <button class="unlock-link" onclick="startBonus()">&#x26A1; Unlock more cards</button>
+    <button class="unlock-link" id="bonus-link" onclick="startBonus()" style="display:none">&#x26A1; Unlock more cards</button>
   </div>
   <div class="sec-label">Badges</div>
   <div class="badges-wrap">
@@ -430,7 +430,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 </div>
 
 <div class="screen" id="screen-dashboard">
-  <div class="dash-hdr"><h2>&#x1F4CA; Teacher Dashboard</h2><p>Real student progress &#x2014; updated live</p></div>
+  <div class="dash-hdr" id="dash-hdr"><h2>&#x1F4CA; Teacher Dashboard</h2><p>Real student progress &#x2014; updated live</p></div>
   <div class="teacher-section">
     <h3>&#x1F393; Students</h3>
     <div id="student-list"><div class="loading-spinner">Loading students&#x2026;</div></div>
@@ -513,6 +513,8 @@ async function loadFromSupabase(){
     APP.xp=state.xp||0;
     APP.totalCards=state.total_cards||0;
     if(state.unlocks&&Object.keys(state.unlocks).length>0) APP.unlocks=state.unlocks;
+    // Always ensure Biology B1 is unlocked — it's the entry point
+    APP.unlocks.biology.b1=true;
     if(state.daily_new) APP.dailyNew=state.daily_new;
     if(state.daily_total) APP.dailyTotal=state.daily_total;
   }
@@ -636,6 +638,8 @@ async function signOut(){
   await db.auth.signOut();
   supabaseLoaded=false;
   currentUser=null;userProfile=null;isTeacher=false;
+  session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
+  todayDone={};
   APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
   cardStates={};
   document.getElementById('main-app').style.display='none';
@@ -847,6 +851,7 @@ function updateHome(){
   const btn=document.getElementById('start-btn');
   btn.textContent=rem>0?'📚 Start '+info.label+' — '+rem+' cards':'✓ All done for today!';
   btn.disabled=rem===0;
+  document.getElementById('bonus-link').style.display=rem===0?'block':'none';
   if(APP.streak>=3)document.getElementById('bdg-s3').classList.add('earned');
   if(APP.streak>=7)document.getElementById('bdg-s7').classList.add('earned');
   if(APP.totalCards>=100)document.getElementById('bdg-100').classList.add('earned');
@@ -1010,8 +1015,24 @@ let selectedStudentState=null;
 
 async function renderDashboard(){
   if(!isTeacher){
-    // Students see their own stats only
-    document.getElementById('student-list').innerHTML='<div class="insight"><p>&#x1F4CA; Your progress is tracked automatically. Ask your teacher to see your full stats.</p></div>';
+    // Students see their own stats
+    const name=userProfile&&userProfile.name?userProfile.name:'You';
+    document.getElementById('dash-hdr').querySelector('h2').textContent='📊 My Progress';
+    document.getElementById('dash-hdr').querySelector('p').textContent='Your personal study stats — keep it up!';
+    document.getElementById('student-list').innerHTML=`
+      <div class="dash-grid" style="margin-bottom:12px">
+        <div class="dash-card"><div class="dash-lbl">🔥 Streak</div><div class="dash-big" style="color:var(--streak)">${APP.streak}</div><div class="dash-sub">days in a row</div></div>
+        <div class="dash-card"><div class="dash-lbl">⚡ Total XP</div><div class="dash-big" style="color:var(--indigo)">${APP.xp.toLocaleString()}</div><div class="dash-sub">xp earned</div></div>
+        <div class="dash-card"><div class="dash-lbl">📚 Cards Done</div><div class="dash-big" style="color:var(--phys)">${APP.totalCards}</div><div class="dash-sub">reviewed</div></div>
+        <div class="dash-card"><div class="dash-lbl">🏆 Level</div><div class="dash-big" style="color:var(--bio)">${Math.floor(APP.xp/200)+1}</div><div class="dash-sub">current level</div></div>
+        <div class="dash-card dash-full">
+          <div class="dash-lbl">📈 Topics Unlocked</div>
+          <div class="sbar"><div class="sbar-lbl"><span>🌿 Biology</span><span>${TOPIC_ORDER.biology.filter(t=>APP.unlocks.biology[t]).length}/${TOPIC_ORDER.biology.length} topics</span></div><div class="sbar-track"><div class="sbar-fill" style="background:var(--bio);width:${Math.round(TOPIC_ORDER.biology.filter(t=>APP.unlocks.biology[t]).length/TOPIC_ORDER.biology.length*100)}%"></div></div></div>
+          <div class="sbar" style="margin-top:9px"><div class="sbar-lbl"><span>⚗️ Chemistry</span><span>${TOPIC_ORDER.chemistry.filter(t=>APP.unlocks.chemistry[t]).length}/${TOPIC_ORDER.chemistry.length} topics</span></div><div class="sbar-track"><div class="sbar-fill" style="background:var(--chem);width:${Math.round(TOPIC_ORDER.chemistry.filter(t=>APP.unlocks.chemistry[t]).length/TOPIC_ORDER.chemistry.length*100)}%"></div></div></div>
+          <div class="sbar" style="margin-top:9px"><div class="sbar-lbl"><span>⚡ Physics</span><span>${TOPIC_ORDER.physics.filter(t=>APP.unlocks.physics[t]).length}/${TOPIC_ORDER.physics.length} topics</span></div><div class="sbar-track"><div class="sbar-fill" style="background:var(--phys);width:${Math.round(TOPIC_ORDER.physics.filter(t=>APP.unlocks.physics[t]).length/TOPIC_ORDER.physics.length*100)}%"></div></div></div>
+        </div>
+      </div>
+      <div class="insight"><p>💬 Your teacher can see your progress and unlock new topics for you.</p></div>`;
     document.getElementById('student-detail').style.display='none';
     return;
   }
