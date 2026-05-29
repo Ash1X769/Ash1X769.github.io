@@ -548,17 +548,21 @@ async function loadFromSupabase(){
 
 async function saveAppState(){
   if(!currentUser) return;
+  const payload={
+    streak:APP.streak,
+    last_study:APP.lastStudy,
+    xp:APP.xp,
+    total_cards:APP.totalCards,
+    total_correct:APP.totalCorrect,
+    unlocks:APP.unlocks,
+    updated_at:new Date().toISOString()
+  };
   try{
-    await db.from('app_state').upsert({
-      user_id:currentUser.id,
-      streak:APP.streak,
-      last_study:APP.lastStudy,
-      xp:APP.xp,
-      total_cards:APP.totalCards,
-      total_correct:APP.totalCorrect,
-      unlocks:APP.unlocks,
-      updated_at:new Date().toISOString()
-    },{onConflict:'user_id'});
+    const{data,error}=await db.from('app_state').update(payload).eq('user_id',currentUser.id).select();
+    if(error||!data||data.length===0){
+      // No existing row — create one
+      await db.from('app_state').insert({user_id:currentUser.id,...payload});
+    }
   }catch(e){console.error('saveAppState failed:',e);}
 }
 
