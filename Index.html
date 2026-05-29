@@ -527,6 +527,8 @@ async function loadFromSupabase(){
     APP.unlocks.biology.b1=true;
     if(state.daily_new) APP.dailyNew=state.daily_new;
     if(state.daily_total) APP.dailyTotal=state.daily_total;
+    // Rebuild todayDone so home screen shows correctly after sign-out/sign-in
+    SUBJECT_ORDER.forEach(s=>{if(getDailyNewCount(s)>=DAILY_NEW)todayDone[s]=true;});
   }
   // Save default unlocks if first login
   if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
