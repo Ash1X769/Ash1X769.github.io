@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ScienceSpark — AQA GCSE Science</title>
+<title>ScienceSpark — AQA GCSE Science v8.2</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -850,7 +850,7 @@ function updateHome(){
     const q=unlocked?buildQueue(s,false):[];
     const total=q.length;
     const remaining=total;
-    const allDone=unlocked&&(total===0||todayDone[s]===true);
+    const allDone=unlocked&&(total===0||todayDone[s]===true||getDailyNewCount(s)>=DAILY_NEW);
     const card=document.createElement('div');
     card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):' subj-locked');
     if(unlocked&&!allDone)card.onclick=()=>startSubjectSession(s);
@@ -860,10 +860,10 @@ function updateHome(){
     grid.appendChild(card);
   });
   const q=buildQueue(todaySubj,false);
-  const rem=todayDone[todaySubj]?0:q.length;
+  const rem=(todayDone[todaySubj]||getDailyNewCount(todaySubj)>=DAILY_NEW)?0:q.length;
   // Update due-today bar
   const allSubjectsDue=SUBJECT_ORDER.filter(isSubjectUnlocked).reduce((acc,s)=>{
-    return acc+(todayDone[s]?0:buildQueue(s,false).length);
+    return acc+((todayDone[s]||getDailyNewCount(s)>=DAILY_NEW)?0:buildQueue(s,false).length);
   },0);
   const dueLbl=document.getElementById('due-count-label');
   const dueSub=document.getElementById('due-count-sub');
@@ -1024,46 +1024,34 @@ function rateCard(grade){
     document.getElementById('nav-streak').textContent=APP.streak;
   }catch(e){console.error('rateCard save error:',e);}
 
-  // Advance — capture values NOW before anything else can change them
   const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
   if(nextUnrated===-1){
-    const _total=session.cards.length;
-    const _good=session.good;
-    const _xp=session.xp;
-    const _streak=APP.streak;
-    const _subject=session.subject;
-    const _pct=_total>0?Math.round(_good/_total*100):0;
-    const _emoji=_pct>=80?'&#x1F389;':_pct>=50?'&#x1F44D;':'&#x1F4AA;';
-    const _title=_pct>=80?'Amazing work!':_pct>=50?'Good effort!':'Keep practising!';
-    const _sub=_pct>=80?'You really know your stuff!':_pct>=50?'Getting better every day!':'Review these cards again soon!';
-    lastSessionStats={total:_total,good:_good,xp:_xp,streak:_streak,subject:_subject};
-    // Replace the entire screen HTML so values are baked in — no getElementById needed
-    document.getElementById('screen-complete').innerHTML=
-      '<div class="comp-wrap">'+
-      '<div class="comp-emoji" style="font-size:56px;margin-bottom:11px;animation:bounce 1s ease infinite">'+_emoji+'</div>'+
-      '<div class="comp-title" id="comp-title" style="font-size:22px;font-weight:900;margin-bottom:5px">'+_title+'</div>'+
-      '<div class="comp-sub" id="comp-sub" style="color:var(--muted);font-weight:600;font-size:14px;margin-bottom:18px">'+_sub+'</div>'+
-      '<div class="stats-grid">'+
-      '<div class="stat-card"><div class="stat-n" id="comp-cards" style="font-size:24px;font-weight:900;margin-bottom:3px;color:var(--indigo)">'+_total+'</div><div class="stat-l" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Cards Done</div></div>'+
-      '<div class="stat-card"><div class="stat-n" id="comp-correct" style="font-size:24px;font-weight:900;margin-bottom:3px;color:var(--good)">'+_good+'</div><div class="stat-l" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Correct</div></div>'+
-      '<div class="stat-card"><div class="stat-n" id="comp-xp" style="font-size:24px;font-weight:900;margin-bottom:3px;color:var(--streak)">+'+_xp+'</div><div class="stat-l" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">XP Earned</div></div>'+
-      '</div>'+
-      '<div id="unlock-notice" class="unlock-notice" style="display:none"><h4>&#x1F389; New Topic Unlocked!</h4><p id="unlock-msg"></p></div>'+
-      '<div class="streak-cel"><div style="font-size:18px;font-weight:900;margin-bottom:2px">&#x1F525; '+_streak+' Day Streak!</div>'+
-      '<div style="opacity:.9;font-size:13px;font-weight:600">You\'re building a great habit!</div></div>'+
-      '<div class="comp-btns">'+
-      '<button class="cbtn primary" onclick="showScreen(\'home\');updateHome()">&#x1F3E0; Back to Home</button>'+
-      '<button class="cbtn secondary" onclick="startBonus()">&#x26A1; Unlock More Cards</button>'+
-      '</div></div>';
+    // Write to sessionStorage immediately — survives any JS state change
+    sessionStorage.setItem('ss_total', session.cards.length);
+    sessionStorage.setItem('ss_good', session.good);
+    sessionStorage.setItem('ss_xp', session.xp);
+    sessionStorage.setItem('ss_streak', APP.streak);
+    sessionStorage.setItem('ss_subject', session.subject||'');
     showComplete();
-  } else {
-    session.idx=nextUnrated;showCard();
   }
+  else{session.idx=nextUnrated;showCard();}
 }
 
 function showComplete(){
-  const s=lastSessionStats||{total:0,good:0,xp:0,streak:0,subject:null};
-  todayDone[s.subject]=true;
+  const total=parseInt(sessionStorage.getItem('ss_total'))||0;
+  const good=parseInt(sessionStorage.getItem('ss_good'))||0;
+  const xp=parseInt(sessionStorage.getItem('ss_xp'))||0;
+  const streak=parseInt(sessionStorage.getItem('ss_streak'))||0;
+  const subject=sessionStorage.getItem('ss_subject')||session.subject||'';
+  const pct=total>0?Math.round(good/total*100):0;
+  document.getElementById('comp-cards').textContent=total;
+  document.getElementById('comp-correct').textContent=good;
+  document.getElementById('comp-xp').textContent='+'+xp;
+  document.getElementById('comp-streak').textContent=streak;
+  document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
+  document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
+  document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
+  todayDone[subject]=true;
   try{
     const newUnlocks=checkAutoUnlocks();
     const ub=document.getElementById('unlock-notice');
