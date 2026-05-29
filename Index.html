@@ -894,8 +894,9 @@ function updateHome(){
 // ── SESSION ──
 let session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
 let examOpen=false;
-let todayDone={}; // tracks which subjects were completed this session
-let bonusShown=new Set(); // tracks card IDs shown in bonus sessions today
+let todayDone={};
+let bonusShown=new Set();
+let lastSessionStats=null; // captured the moment the last card is rated
 
 function startTodaySession(){startSubjectSession(getTodaySubject());}
 function startBonus(){
@@ -1026,21 +1027,23 @@ function rateCard(grade){
   // Advance — capture values NOW before anything else can change them
   const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
   if(nextUnrated===-1){
-    const snap={
+    // Capture stats NOW into module-level var — immune to any later session reset
+    lastSessionStats={
       total:session.cards.length,
       good:session.good,
       xp:session.xp,
       streak:APP.streak,
       subject:session.subject
     };
-    showComplete(snap);
+    showComplete();
   } else {
     session.idx=nextUnrated;showCard();
   }
 }
 
-function showComplete(snap){
-  const total=snap.total,good=snap.good,xp=snap.xp,streak=snap.streak,subject=snap.subject;
+function showComplete(){
+  const s=lastSessionStats||{total:0,good:0,xp:0,streak:0,subject:null};
+  const total=s.total,good=s.good,xp=s.xp,streak=s.streak,subject=s.subject;
   todayDone[subject]=true;
   const pct=total>0?Math.round(good/total*100):0;
   // Wrap DOM updates — if any element ID is missing it won't block the screen transition
