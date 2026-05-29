@@ -541,6 +541,17 @@ async function loadFromSupabase(){
         due:p.due,seenAt:p.seen_at
       };
     });
+    // Reconstruct todayDone from updated_at — always saved as ISO string, definitely reliable
+    const todayStart=new Date();todayStart.setHours(0,0,0,0);
+    const t=getTodayKey();
+    if(!APP.dailyNew[t])APP.dailyNew[t]={};
+    progress.forEach(p=>{
+      if(p.updated_at&&new Date(p.updated_at)>=todayStart){
+        const card=CARDS.find(c=>c.id===p.card_id);
+        if(card)APP.dailyNew[t][card.subject]=(APP.dailyNew[t][card.subject]||0)+1;
+      }
+    });
+    SUBJECT_ORDER.forEach(s=>{if(getDailyNewCount(s)>=DAILY_NEW)todayDone[s]=true;});
   }
   recalcStreak();
 }
@@ -850,7 +861,7 @@ function updateHome(){
     const q=unlocked?buildQueue(s,false):[];
     const total=q.length;
     const remaining=total;
-    const allDone=unlocked&&(total===0||todayDone[s]===true);
+    const allDone=unlocked&&(total===0||todayDone[s]===true||getDailyNewCount(s)>=DAILY_NEW);
     const card=document.createElement('div');
     card.className='subj-big '+si.cls+(unlocked?(allDone?' subj-done':' clickable'):' subj-locked');
     if(unlocked&&!allDone)card.onclick=()=>startSubjectSession(s);
@@ -860,10 +871,10 @@ function updateHome(){
     grid.appendChild(card);
   });
   const q=buildQueue(todaySubj,false);
-  const rem=todayDone[todaySubj]?0:q.length;
+  const rem=(todayDone[todaySubj]||getDailyNewCount(todaySubj)>=DAILY_NEW)?0:q.length;
   // Update due-today bar
   const allSubjectsDue=SUBJECT_ORDER.filter(isSubjectUnlocked).reduce((acc,s)=>{
-    return acc+(todayDone[s]?0:buildQueue(s,false).length);
+    return acc+((todayDone[s]||getDailyNewCount(s)>=DAILY_NEW)?0:buildQueue(s,false).length);
   },0);
   const dueLbl=document.getElementById('due-count-label');
   const dueSub=document.getElementById('due-count-sub');
