@@ -1027,14 +1027,22 @@ function rateCard(grade){
   // Advance — capture values NOW before anything else can change them
   const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
   if(nextUnrated===-1){
-    // Capture stats NOW into module-level var — immune to any later session reset
-    lastSessionStats={
-      total:session.cards.length,
-      good:session.good,
-      xp:session.xp,
-      streak:APP.streak,
-      subject:session.subject
-    };
+    // Capture exact values as local primitives RIGHT NOW
+    const _total=session.cards.length;
+    const _good=session.good;
+    const _xp=session.xp;
+    const _streak=APP.streak;
+    const _subject=session.subject;
+    const _pct=_total>0?Math.round(_good/_total*100):0;
+    // Write to DOM immediately — before any screen transition or async call
+    document.getElementById('comp-cards').textContent=_total;
+    document.getElementById('comp-correct').textContent=_good;
+    document.getElementById('comp-xp').textContent='+'+_xp;
+    document.getElementById('comp-streak').textContent=_streak;
+    document.getElementById('comp-emoji').innerHTML=_pct>=80?'&#x1F389;':_pct>=50?'&#x1F44D;':'&#x1F4AA;';
+    document.getElementById('comp-title').textContent=_pct>=80?'Amazing work!':_pct>=50?'Good effort!':'Keep practising!';
+    document.getElementById('comp-sub').textContent=_pct>=80?'You really know your stuff!':_pct>=50?'Getting better every day!':'Review these cards again soon!';
+    lastSessionStats={total:_total,good:_good,xp:_xp,streak:_streak,subject:_subject};
     showComplete();
   } else {
     session.idx=nextUnrated;showCard();
@@ -1043,24 +1051,13 @@ function rateCard(grade){
 
 function showComplete(){
   const s=lastSessionStats||{total:0,good:0,xp:0,streak:0,subject:null};
-  const total=s.total,good=s.good,xp=s.xp,streak=s.streak,subject=s.subject;
-  todayDone[subject]=true;
-  const pct=total>0?Math.round(good/total*100):0;
-  // Wrap DOM updates — if any element ID is missing it won't block the screen transition
-  try{document.getElementById('comp-cards').textContent=total;}catch(e){}
-  try{document.getElementById('comp-correct').textContent=good;}catch(e){}
-  try{document.getElementById('comp-xp').textContent='+'+xp;}catch(e){}
-  try{document.getElementById('comp-streak').textContent=streak;}catch(e){}
-  try{document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';}catch(e){}
-  try{document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';}catch(e){}
-  try{document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';}catch(e){}
+  todayDone[s.subject]=true;
   try{
     const newUnlocks=checkAutoUnlocks();
     const ub=document.getElementById('unlock-notice');
     if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
     else ub.style.display='none';
   }catch(e){}
-  // Always runs regardless of any errors above
   showScreen('complete');
   updateHome();
 }
