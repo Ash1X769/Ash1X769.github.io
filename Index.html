@@ -1040,22 +1040,24 @@ function rateCard(grade){
 }
 
 function showComplete(snap){
-  const total=snap.total, good=snap.good, xp=snap.xp, streak=snap.streak, subject=snap.subject;
+  const total=snap.total,good=snap.good,xp=snap.xp,streak=snap.streak,subject=snap.subject;
   todayDone[subject]=true;
   const pct=total>0?Math.round(good/total*100):0;
-  document.getElementById('comp-cards').textContent=total;
-  document.getElementById('comp-correct').textContent=good;
-  document.getElementById('comp-xp').textContent='+'+xp;
-  document.getElementById('comp-streak').textContent=streak;
-  document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
-  document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
-  document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
+  // Wrap DOM updates — if any element ID is missing it won't block the screen transition
+  try{document.getElementById('comp-cards').textContent=total;}catch(e){}
+  try{document.getElementById('comp-correct').textContent=good;}catch(e){}
+  try{document.getElementById('comp-xp').textContent='+'+xp;}catch(e){}
+  try{document.getElementById('comp-streak').textContent=streak;}catch(e){}
+  try{document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';}catch(e){}
+  try{document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';}catch(e){}
+  try{document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';}catch(e){}
   try{
     const newUnlocks=checkAutoUnlocks();
     const ub=document.getElementById('unlock-notice');
     if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
     else ub.style.display='none';
-  }catch(e){document.getElementById('unlock-notice').style.display='none';}
+  }catch(e){}
+  // Always runs regardless of any errors above
   showScreen('complete');
   updateHome();
 }
