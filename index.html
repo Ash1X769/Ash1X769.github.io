@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ScienceSpark — AQA GCSE Science</title>
+<title>ScienceSpark — AQA GCSE Science v8.2</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -327,6 +327,16 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
     </div>
   </div>
   <div class="sec-label">Today's Session</div>
+  <div id="due-today-bar" style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:11px 16px;margin-bottom:10px;box-shadow:var(--shadow)">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">📋</span>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)" id="due-count-label">Loading…</div>
+        <div style="font-size:11px;font-weight:600;color:var(--muted)" id="due-count-sub"></div>
+      </div>
+    </div>
+    <div id="due-pill" style="font-size:12px;font-weight:800;padding:4px 12px;border-radius:20px;background:var(--indigo-light);color:var(--indigo)"></div>
+  </div>
   <div class="today-card">
     <div class="today-header">
       <span class="today-title" id="today-title">Loading&#x2026;</span>
@@ -334,7 +344,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
     </div>
     <div class="subject-grid" id="subject-grid"></div>
     <button class="start-today" id="start-btn" onclick="startTodaySession()">&#x1F4DA; Start Today's Cards</button>
-    <button class="unlock-link" onclick="startBonus()">&#x26A1; Unlock more cards</button>
+    <button class="unlock-link" id="bonus-link" onclick="startBonus()" style="display:none">&#x26A1; Unlock more cards</button>
   </div>
   <div class="sec-label">Badges</div>
   <div class="badges-wrap">
@@ -430,7 +440,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 </div>
 
 <div class="screen" id="screen-dashboard">
-  <div class="dash-hdr"><h2>&#x1F4CA; Teacher Dashboard</h2><p>Real student progress &#x2014; updated live</p></div>
+  <div class="dash-hdr" id="dash-hdr"><h2>&#x1F4CA; Teacher Dashboard</h2><p>Real student progress &#x2014; updated live</p></div>
   <div class="teacher-section">
     <h3>&#x1F393; Students</h3>
     <div id="student-list"><div class="loading-spinner">Loading students&#x2026;</div></div>
@@ -513,6 +523,8 @@ async function loadFromSupabase(){
     APP.xp=state.xp||0;
     APP.totalCards=state.total_cards||0;
     if(state.unlocks&&Object.keys(state.unlocks).length>0) APP.unlocks=state.unlocks;
+    // Always ensure Biology B1 is unlocked — it's the entry point
+    APP.unlocks.biology.b1=true;
     if(state.daily_new) APP.dailyNew=state.daily_new;
     if(state.daily_total) APP.dailyTotal=state.daily_total;
   }
@@ -636,6 +648,9 @@ async function signOut(){
   await db.auth.signOut();
   supabaseLoaded=false;
   currentUser=null;userProfile=null;isTeacher=false;
+  session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
+  todayDone={};
+  bonusShown=new Set();
   APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
   cardStates={};
   document.getElementById('main-app').style.display='none';
@@ -644,34 +659,31 @@ async function signOut(){
 
 async function onAuthStateChange(user){
   if(user){
+    const isFirstLoad=!currentUser||(currentUser.id!==user.id);
     currentUser=user;
     isTeacher=(user.email===TEACHER_EMAIL);
-    // Load profile
     const{data:profile}=await db.from('profiles').select('*').eq('id',user.id).single();
     if(profile){
       userProfile=profile;
-      // Update name if set in metadata
       if(!profile.name&&user.user_metadata&&user.user_metadata.name){
         await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group}).eq('id',user.id);
       }
     }
-    // Show app immediately with defaults so grid renders
-    document.getElementById('auth-screen').style.display='none';
-    document.getElementById('main-app').style.display='block';
-    updateHome();
     if(!supabaseLoaded){
+      document.getElementById('auth-screen').style.display='none';
+      document.getElementById('main-app').style.display='block';
+      updateHome();
       await loadFromSupabase();
       supabaseLoaded=true;
+      if(isTeacher){
+        document.querySelector('.nav-tabs').innerHTML=
+          '<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+
+          '<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
+      }
+      showScreen('home');
+      updateHome();
     }
-    updateHome();
-    // Update nav tabs for teacher
-    if(isTeacher){
-      document.querySelector('.nav-tabs').innerHTML=
-        '<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+
-        '<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
-    }
-    showScreen('home');
-    updateHome();
+    // Token refresh — just silently update currentUser, don't disrupt the UI
   } else {
     document.getElementById('main-app').style.display='none';
     document.getElementById('auth-screen').style.display='flex';
@@ -741,7 +753,12 @@ function buildQueue(subject,bonusMode){
   }
   const reviews=all.filter(c=>isDue(c.id)).sort((a,b)=>getCardState(a.id).due-getCardState(b.id).due);
   const news=all.filter(c=>isNew(c.id));
-  if(bonusMode){return news.slice(0,5).map(c=>({...c,_isNew:true}));}
+  if(bonusMode){
+    const unseen=news.filter(c=>!bonusShown.has(c.id));
+    const batch=unseen.slice(0,5).map(c=>({...c,_isNew:true}));
+    batch.forEach(c=>bonusShown.add(c.id));
+    return batch;
+  }
   const newUsed=getDailyNewCount(subject);
   const newLeft=Math.max(0,DAILY_NEW-newUsed);
   const revs=reviews.slice(0,DAILY_REV).map(c=>({...c,_isNew:false}));
@@ -844,9 +861,30 @@ function updateHome(){
   });
   const q=buildQueue(todaySubj,false);
   const rem=todayDone[todaySubj]?0:q.length;
+  // Update due-today bar
+  const allSubjectsDue=SUBJECT_ORDER.filter(isSubjectUnlocked).reduce((acc,s)=>{
+    return acc+(todayDone[s]?0:buildQueue(s,false).length);
+  },0);
+  const dueLbl=document.getElementById('due-count-label');
+  const dueSub=document.getElementById('due-count-sub');
+  const duePill=document.getElementById('due-pill');
+  if(allSubjectsDue===0){
+    dueLbl.textContent='All done for today ✓';
+    dueSub.textContent='Come back tomorrow to keep your streak!';
+    duePill.textContent='0 due';
+    duePill.style.background='#F0FDF4';
+    duePill.style.color='var(--good)';
+  } else {
+    dueLbl.textContent=allSubjectsDue+' card'+(allSubjectsDue!==1?'s':'')+' due today';
+    dueSub.textContent='Across your unlocked subjects';
+    duePill.textContent=allSubjectsDue+' due';
+    duePill.style.background='var(--indigo-light)';
+    duePill.style.color='var(--indigo)';
+  }
   const btn=document.getElementById('start-btn');
   btn.textContent=rem>0?'📚 Start '+info.label+' — '+rem+' cards':'✓ All done for today!';
   btn.disabled=rem===0;
+  document.getElementById('bonus-link').style.display=rem===0?'block':'none';
   if(APP.streak>=3)document.getElementById('bdg-s3').classList.add('earned');
   if(APP.streak>=7)document.getElementById('bdg-s7').classList.add('earned');
   if(APP.totalCards>=100)document.getElementById('bdg-100').classList.add('earned');
@@ -856,7 +894,9 @@ function updateHome(){
 // ── SESSION ──
 let session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
 let examOpen=false;
-let todayDone={}; // tracks which subjects were completed this session
+let todayDone={};
+let bonusShown=new Set();
+let lastSessionStats=null; // captured the moment the last card is rated
 
 function startTodaySession(){startSubjectSession(getTodaySubject());}
 function startBonus(){
@@ -966,42 +1006,60 @@ function toggleExamCard(){
 function rateCard(grade){
   const card=session.cards[session.idx];
   if(!card||session.rated[session.idx]!==undefined)return;
+
+  // Update session state immediately
+  session.rated[session.idx]=grade;
+  if(grade>=2)session.good++;
+  const xp=[5,8,12,18][grade];
+  session.xp+=xp;APP.xp+=xp;APP.totalCards++;
+
+  // Persist to Supabase — allowed to fail
   try{
     const newState=sm2({...getCardState(card.id),seenAt:Date.now()},grade);
     saveCardState(card.id,newState,card);
-    const xp=[5,8,12,18][grade];
-    session.xp+=xp;APP.xp+=xp;APP.totalCards++;
-    if(grade>=2)session.good++;
-    session.rated[session.idx]=grade;
     if(card._isNew)incrementDailyNew(card.subject);
     incrementDailyTotal(card.subject);
     saveAppState();
     saveDailyActivity(card.subject);
     document.getElementById('nav-streak').textContent=APP.streak;
-  }catch(e){console.error('rateCard error:',e);}
-  // Always advance — do this outside try/catch so it can't be blocked
+  }catch(e){console.error('rateCard save error:',e);}
+
   const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
-  if(nextUnrated===-1)showComplete();
+  if(nextUnrated===-1){
+    // Write to sessionStorage immediately — survives any JS state change
+    sessionStorage.setItem('ss_total', session.cards.length);
+    sessionStorage.setItem('ss_good', session.good);
+    sessionStorage.setItem('ss_xp', session.xp);
+    sessionStorage.setItem('ss_streak', APP.streak);
+    sessionStorage.setItem('ss_subject', session.subject||'');
+    showComplete();
+  }
   else{session.idx=nextUnrated;showCard();}
 }
 
 function showComplete(){
+  const total=parseInt(sessionStorage.getItem('ss_total'))||0;
+  const good=parseInt(sessionStorage.getItem('ss_good'))||0;
+  const xp=parseInt(sessionStorage.getItem('ss_xp'))||0;
+  const streak=parseInt(sessionStorage.getItem('ss_streak'))||0;
+  const subject=sessionStorage.getItem('ss_subject')||session.subject||'';
+  const pct=total>0?Math.round(good/total*100):0;
+  document.getElementById('comp-cards').textContent=total;
+  document.getElementById('comp-correct').textContent=good;
+  document.getElementById('comp-xp').textContent='+'+xp;
+  document.getElementById('comp-streak').textContent=streak;
+  document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
+  document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
+  document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
+  todayDone[subject]=true;
   try{
-    todayDone[session.subject]=true;
-    const pct=total>0?Math.round(session.good/total*100):0;
-    document.getElementById('comp-cards').textContent=total;
-    document.getElementById('comp-correct').textContent=session.good;
-    document.getElementById('comp-xp').textContent='+'+session.xp;
-    document.getElementById('comp-streak').textContent=APP.streak;
-    document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
-    document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
-    document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
     const newUnlocks=checkAutoUnlocks();
     const ub=document.getElementById('unlock-notice');
     if(newUnlocks.length){ub.style.display='block';document.getElementById('unlock-msg').textContent=newUnlocks.map(u=>SUBJECTS[u.subject].icon+' '+u.name).join(', ')+' now unlocked!';}
     else ub.style.display='none';
-  }catch(e){console.error('showComplete error:',e);}
+  }catch(e){}
   showScreen('complete');
+  updateHome();
 }
 
 // ── TEACHER DASHBOARD ──
@@ -1010,8 +1068,24 @@ let selectedStudentState=null;
 
 async function renderDashboard(){
   if(!isTeacher){
-    // Students see their own stats only
-    document.getElementById('student-list').innerHTML='<div class="insight"><p>&#x1F4CA; Your progress is tracked automatically. Ask your teacher to see your full stats.</p></div>';
+    // Students see their own stats
+    const name=userProfile&&userProfile.name?userProfile.name:'You';
+    document.getElementById('dash-hdr').querySelector('h2').textContent='📊 My Progress';
+    document.getElementById('dash-hdr').querySelector('p').textContent='Your personal study stats — keep it up!';
+    document.getElementById('student-list').innerHTML=`
+      <div class="dash-grid" style="margin-bottom:12px">
+        <div class="dash-card"><div class="dash-lbl">🔥 Streak</div><div class="dash-big" style="color:var(--streak)">${APP.streak}</div><div class="dash-sub">days in a row</div></div>
+        <div class="dash-card"><div class="dash-lbl">⚡ Total XP</div><div class="dash-big" style="color:var(--indigo)">${APP.xp.toLocaleString()}</div><div class="dash-sub">xp earned</div></div>
+        <div class="dash-card"><div class="dash-lbl">📚 Cards Done</div><div class="dash-big" style="color:var(--phys)">${APP.totalCards}</div><div class="dash-sub">reviewed</div></div>
+        <div class="dash-card"><div class="dash-lbl">🏆 Level</div><div class="dash-big" style="color:var(--bio)">${Math.floor(APP.xp/200)+1}</div><div class="dash-sub">current level</div></div>
+        <div class="dash-card dash-full">
+          <div class="dash-lbl">📈 Topics Unlocked</div>
+          <div class="sbar"><div class="sbar-lbl"><span>🌿 Biology</span><span>${TOPIC_ORDER.biology.filter(t=>APP.unlocks.biology[t]).length}/${TOPIC_ORDER.biology.length} topics</span></div><div class="sbar-track"><div class="sbar-fill" style="background:var(--bio);width:${Math.round(TOPIC_ORDER.biology.filter(t=>APP.unlocks.biology[t]).length/TOPIC_ORDER.biology.length*100)}%"></div></div></div>
+          <div class="sbar" style="margin-top:9px"><div class="sbar-lbl"><span>⚗️ Chemistry</span><span>${TOPIC_ORDER.chemistry.filter(t=>APP.unlocks.chemistry[t]).length}/${TOPIC_ORDER.chemistry.length} topics</span></div><div class="sbar-track"><div class="sbar-fill" style="background:var(--chem);width:${Math.round(TOPIC_ORDER.chemistry.filter(t=>APP.unlocks.chemistry[t]).length/TOPIC_ORDER.chemistry.length*100)}%"></div></div></div>
+          <div class="sbar" style="margin-top:9px"><div class="sbar-lbl"><span>⚡ Physics</span><span>${TOPIC_ORDER.physics.filter(t=>APP.unlocks.physics[t]).length}/${TOPIC_ORDER.physics.length} topics</span></div><div class="sbar-track"><div class="sbar-fill" style="background:var(--phys);width:${Math.round(TOPIC_ORDER.physics.filter(t=>APP.unlocks.physics[t]).length/TOPIC_ORDER.physics.length*100)}%"></div></div></div>
+        </div>
+      </div>
+      <div class="insight"><p>💬 Your teacher can see your progress and unlock new topics for you.</p></div>`;
     document.getElementById('student-detail').style.display='none';
     return;
   }
