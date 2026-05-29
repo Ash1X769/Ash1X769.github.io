@@ -1027,22 +1027,34 @@ function rateCard(grade){
   // Advance — capture values NOW before anything else can change them
   const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
   if(nextUnrated===-1){
-    // Capture exact values as local primitives RIGHT NOW
     const _total=session.cards.length;
     const _good=session.good;
     const _xp=session.xp;
     const _streak=APP.streak;
     const _subject=session.subject;
     const _pct=_total>0?Math.round(_good/_total*100):0;
-    // Write to DOM immediately — before any screen transition or async call
-    document.getElementById('comp-cards').textContent=_total;
-    document.getElementById('comp-correct').textContent=_good;
-    document.getElementById('comp-xp').textContent='+'+_xp;
-    document.getElementById('comp-streak').textContent=_streak;
-    document.getElementById('comp-emoji').innerHTML=_pct>=80?'&#x1F389;':_pct>=50?'&#x1F44D;':'&#x1F4AA;';
-    document.getElementById('comp-title').textContent=_pct>=80?'Amazing work!':_pct>=50?'Good effort!':'Keep practising!';
-    document.getElementById('comp-sub').textContent=_pct>=80?'You really know your stuff!':_pct>=50?'Getting better every day!':'Review these cards again soon!';
+    const _emoji=_pct>=80?'&#x1F389;':_pct>=50?'&#x1F44D;':'&#x1F4AA;';
+    const _title=_pct>=80?'Amazing work!':_pct>=50?'Good effort!':'Keep practising!';
+    const _sub=_pct>=80?'You really know your stuff!':_pct>=50?'Getting better every day!':'Review these cards again soon!';
     lastSessionStats={total:_total,good:_good,xp:_xp,streak:_streak,subject:_subject};
+    // Replace the entire screen HTML so values are baked in — no getElementById needed
+    document.getElementById('screen-complete').innerHTML=
+      '<div class="comp-wrap">'+
+      '<div class="comp-emoji" style="font-size:56px;margin-bottom:11px;animation:bounce 1s ease infinite">'+_emoji+'</div>'+
+      '<div class="comp-title" id="comp-title" style="font-size:22px;font-weight:900;margin-bottom:5px">'+_title+'</div>'+
+      '<div class="comp-sub" id="comp-sub" style="color:var(--muted);font-weight:600;font-size:14px;margin-bottom:18px">'+_sub+'</div>'+
+      '<div class="stats-grid">'+
+      '<div class="stat-card"><div class="stat-n" id="comp-cards" style="font-size:24px;font-weight:900;margin-bottom:3px;color:var(--indigo)">'+_total+'</div><div class="stat-l" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Cards Done</div></div>'+
+      '<div class="stat-card"><div class="stat-n" id="comp-correct" style="font-size:24px;font-weight:900;margin-bottom:3px;color:var(--good)">'+_good+'</div><div class="stat-l" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Correct</div></div>'+
+      '<div class="stat-card"><div class="stat-n" id="comp-xp" style="font-size:24px;font-weight:900;margin-bottom:3px;color:var(--streak)">+'+_xp+'</div><div class="stat-l" style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px">XP Earned</div></div>'+
+      '</div>'+
+      '<div id="unlock-notice" class="unlock-notice" style="display:none"><h4>&#x1F389; New Topic Unlocked!</h4><p id="unlock-msg"></p></div>'+
+      '<div class="streak-cel"><div style="font-size:18px;font-weight:900;margin-bottom:2px">&#x1F525; '+_streak+' Day Streak!</div>'+
+      '<div style="opacity:.9;font-size:13px;font-weight:600">You\'re building a great habit!</div></div>'+
+      '<div class="comp-btns">'+
+      '<button class="cbtn primary" onclick="showScreen(\'home\');updateHome()">&#x1F3E0; Back to Home</button>'+
+      '<button class="cbtn secondary" onclick="startBonus()">&#x26A1; Unlock More Cards</button>'+
+      '</div></div>';
     showComplete();
   } else {
     session.idx=nextUnrated;showCard();
