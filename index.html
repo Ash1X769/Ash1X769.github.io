@@ -502,7 +502,7 @@ let supabaseLoaded=false;
 
 // ── IN-MEMORY STATE (synced to Supabase) ──
 let APP={
-  streak:0,lastStudy:null,xp:0,totalCards:0,
+  streak:0,lastStudy:null,xp:0,totalCards:0,totalCorrect:0,
   unlocks:{
     biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},
     chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},
@@ -522,6 +522,7 @@ async function loadFromSupabase(){
     APP.lastStudy=state.last_study;
     APP.xp=state.xp||0;
     APP.totalCards=state.total_cards||0;
+    APP.totalCorrect=state.total_correct||0;
     if(state.unlocks&&Object.keys(state.unlocks).length>0) APP.unlocks=state.unlocks;
     // Always ensure Biology B1 is unlocked — it's the entry point
     APP.unlocks.biology.b1=true;
@@ -554,8 +555,8 @@ async function saveAppState(){
       last_study:APP.lastStudy,
       xp:APP.xp,
       total_cards:APP.totalCards,
+      total_correct:APP.totalCorrect,
       unlocks:APP.unlocks,
-      daily_new:APP.dailyNew,
       updated_at:new Date().toISOString()
     },{onConflict:'user_id'});
   }catch(e){console.error('saveAppState failed:',e);}
@@ -652,7 +653,7 @@ async function signOut(){
   session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
   todayDone={};
   bonusShown=new Set();
-  APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
+  APP={streak:0,lastStudy:null,xp:0,totalCards:0,totalCorrect:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
   cardStates={};
   document.getElementById('main-app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
@@ -1033,7 +1034,7 @@ function rateCard(grade){
 
   // Update session state immediately
   session.rated[session.idx]=grade;
-  if(grade>=2)session.good++;
+  if(grade>=2){session.good++;APP.totalCorrect++;}
   const xp=[5,8,12,18][grade];
   session.xp+=xp;APP.xp+=xp;APP.totalCards++;
 
@@ -1084,6 +1085,8 @@ function showComplete(){
   }catch(e){}
   showScreen('complete');
   updateHome();
+  // Re-render dashboard in background so stats are fresh if user navigates there
+  if(typeof renderDashboard==='function')setTimeout(renderDashboard,100);
 }
 
 // ── TEACHER DASHBOARD ──
@@ -1101,6 +1104,7 @@ async function renderDashboard(){
         <div class="dash-card"><div class="dash-lbl">🔥 Streak</div><div class="dash-big" style="color:var(--streak)">${APP.streak}</div><div class="dash-sub">days in a row</div></div>
         <div class="dash-card"><div class="dash-lbl">⚡ Total XP</div><div class="dash-big" style="color:var(--indigo)">${APP.xp.toLocaleString()}</div><div class="dash-sub">xp earned</div></div>
         <div class="dash-card"><div class="dash-lbl">📚 Cards Done</div><div class="dash-big" style="color:var(--phys)">${APP.totalCards}</div><div class="dash-sub">reviewed</div></div>
+        <div class="dash-card"><div class="dash-lbl">✅ Correct</div><div class="dash-big" style="color:var(--good)">${APP.totalCorrect}</div><div class="dash-sub">${APP.totalCards>0?Math.round(APP.totalCorrect/APP.totalCards*100)+'% accuracy':'all time'}</div></div>
         <div class="dash-card"><div class="dash-lbl">🏆 Level</div><div class="dash-big" style="color:var(--bio)">${Math.floor(APP.xp/200)+1}</div><div class="dash-sub">current level</div></div>
         <div class="dash-card dash-full">
           <div class="dash-lbl">📈 Topics Unlocked</div>
