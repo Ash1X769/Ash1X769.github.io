@@ -541,17 +541,6 @@ async function loadFromSupabase(){
         due:p.due,seenAt:p.seen_at
       };
     });
-    // Reconstruct todayDone from updated_at — always saved as ISO string, definitely reliable
-    const todayStart=new Date();todayStart.setHours(0,0,0,0);
-    const t=getTodayKey();
-    if(!APP.dailyNew[t])APP.dailyNew[t]={};
-    progress.forEach(p=>{
-      if(p.updated_at&&new Date(p.updated_at)>=todayStart){
-        const card=CARDS.find(c=>c.id===p.card_id);
-        if(card)APP.dailyNew[t][card.subject]=(APP.dailyNew[t][card.subject]||0)+1;
-      }
-    });
-    SUBJECT_ORDER.forEach(s=>{if(getDailyNewCount(s)>=DAILY_NEW)todayDone[s]=true;});
   }
   recalcStreak();
 }
@@ -657,6 +646,7 @@ async function signUp(){
 
 async function signOut(){
   await db.auth.signOut();
+  // Note: intentionally NOT clearing localStorage ss_done_ — persists so same-day re-login still shows complete
   supabaseLoaded=false;
   currentUser=null;userProfile=null;isTeacher=false;
   session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
@@ -684,7 +674,8 @@ async function onAuthStateChange(user){
       document.getElementById('auth-screen').style.display='none';
       document.getElementById('main-app').style.display='block';
       updateHome();
-      await loadFromSupabase();
+      try{await loadFromSupabase();}catch(e){console.error('loadFromSupabase error:',e);}
+      loadTodayDone();
       supabaseLoaded=true;
       if(isTeacher){
         document.querySelector('.nav-tabs').innerHTML=
@@ -746,6 +737,28 @@ function checkAutoUnlocks(){
 
 const isTopicUnlocked=(s,c)=>APP.unlocks[s][c]===true;
 const isSubjectUnlocked=s=>TOPIC_ORDER[s].some(t=>isTopicUnlocked(s,t));
+
+function markTodayDone(subject){
+  todayDone[subject]=true;
+  if(!currentUser)return;
+  const today=getTodayKey();
+  const key='ss_done_'+currentUser.id;
+  try{
+    const obj={};obj[today]={};
+    SUBJECT_ORDER.forEach(s=>{if(todayDone[s])obj[today][s]=true;});
+    localStorage.setItem(key,JSON.stringify(obj));
+  }catch(e){}
+}
+
+function loadTodayDone(){
+  if(!currentUser)return;
+  const today=getTodayKey();
+  const key='ss_done_'+currentUser.id;
+  try{
+    const stored=JSON.parse(localStorage.getItem(key)||'{}');
+    if(stored[today])Object.keys(stored[today]).forEach(s=>{todayDone[s]=true;});
+  }catch(e){}
+}
 
 function getTodayKey(){return new Date().toDateString();}
 function getDailyNewCount(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
@@ -1062,7 +1075,7 @@ function showComplete(){
   document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
   document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
   document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
-  todayDone[subject]=true;
+  markTodayDone(subject);
   try{
     const newUnlocks=checkAutoUnlocks();
     const ub=document.getElementById('unlock-notice');
