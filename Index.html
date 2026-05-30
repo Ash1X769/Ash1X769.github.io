@@ -515,8 +515,10 @@ let cardStates={};
 // ── SUPABASE SYNC ──
 async function loadFromSupabase(){
   if(!currentUser) return;
+  const userId=currentUser.id; // capture now — user may change during async ops
   // Load app state
-  const{data:state}=await db.from('app_state').select('*').eq('user_id',currentUser.id).single();
+  const{data:state}=await db.from('app_state').select('*').eq('user_id',userId).single();
+  if(currentUser.id!==userId)return; // user changed while loading — bail out
   if(state){
     APP.streak=state.streak||0;
     APP.lastStudy=state.last_study;
@@ -529,12 +531,9 @@ async function loadFromSupabase(){
     if(state.daily_new) APP.dailyNew=state.daily_new;
     if(state.daily_total) APP.dailyTotal=state.daily_total;
   }
-  // Save default unlocks if first login
-  if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
-    saveAppState(); // non-blocking
-  }
   // Load card progress
-  const{data:progress}=await db.from('card_progress').select('*').eq('user_id',currentUser.id);
+  const{data:progress}=await db.from('card_progress').select('*').eq('user_id',userId);
+  if(currentUser.id!==userId)return; // user changed while loading — bail out
   if(progress){
     progress.forEach(p=>{
       cardStates[p.card_id]={
@@ -543,12 +542,17 @@ async function loadFromSupabase(){
       };
     });
   }
-  recalcStreak();
+  // Check and update streak based on loaded data
+  checkStreak();
+  // Only save defaults if genuinely first login, or always save updated streak
+  saveAppState(); // non-blocking — persists streak and any defaults
 }
 
 async function saveAppState(){
   if(!currentUser) return;
+  const userId=currentUser.id;
   const payload={
+    user_id:userId,
     streak:APP.streak,
     last_study:APP.lastStudy,
     xp:APP.xp,
@@ -558,11 +562,8 @@ async function saveAppState(){
     updated_at:new Date().toISOString()
   };
   try{
-    const{data,error}=await db.from('app_state').update(payload).eq('user_id',currentUser.id).select();
-    if(error||!data||data.length===0){
-      // No existing row — create one
-      await db.from('app_state').insert({user_id:currentUser.id,...payload});
-    }
+    const{error}=await db.from('app_state').upsert(payload,{onConflict:'user_id'});
+    if(error)console.error('saveAppState error:',error);
   }catch(e){console.error('saveAppState failed:',e);}
 }
 
@@ -650,10 +651,10 @@ async function signUp(){
 }
 
 async function signOut(){
+  // Clear user identity FIRST — prevents any stray saveAppState writing zeros to Supabase
+  currentUser=null;userProfile=null;isTeacher=false;supabaseLoaded=false;
   await db.auth.signOut();
   // Note: intentionally NOT clearing localStorage ss_done_ — persists so same-day re-login still shows complete
-  supabaseLoaded=false;
-  currentUser=null;userProfile=null;isTeacher=false;
   session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
   todayDone={};
   bonusShown=new Set();
@@ -678,7 +679,6 @@ async function onAuthStateChange(user){
     if(!supabaseLoaded){
       document.getElementById('auth-screen').style.display='none';
       document.getElementById('main-app').style.display='block';
-      updateHome();
       try{await loadFromSupabase();}catch(e){console.error('loadFromSupabase error:',e);}
       loadTodayDone();
       supabaseLoaded=true;
@@ -812,8 +812,12 @@ function getTodaySubject(){
 
 function checkStreak(){
   const today=getTodayKey(),yesterday=new Date(Date.now()-86400000).toDateString();
-  if(APP.lastStudy===today)return;
-  APP.streak=APP.lastStudy===yesterday?APP.streak+1:1;
+  if(APP.lastStudy===today)return; // already studied today, streak unchanged
+  if(APP.lastStudy===yesterday){
+    APP.streak=APP.streak+1; // studied yesterday — extend streak
+  } else {
+    APP.streak=1; // first study ever, or gap in days — start/restart at 1
+  }
   APP.lastStudy=today;
 }
 
@@ -932,6 +936,8 @@ let lastSessionStats=null; // captured the moment the last card is rated
 
 function startTodaySession(){startSubjectSession(getTodaySubject());}
 function startBonus(){
+  checkStreak();
+  saveAppState();
   const s=session.subject||getTodaySubject();
   const q=buildQueue(s,true);
   if(!q.length){alert('No more new cards available right now! 🎉');return;}
@@ -940,6 +946,7 @@ function startBonus(){
 }
 function startSubjectSession(s){
   checkStreak();
+  saveAppState(); // save streak immediately after checking
   const q=buildQueue(s,false);
   if(!q.length){return;} // silently do nothing - button should already be disabled
   session={cards:q,idx:0,good:0,xp:0,subject:s,bonusMode:false,rated:{}};
