@@ -354,7 +354,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
         <input class="form-input" id="parent-code-input" type="text" placeholder="e.g. XK7P2" style="text-transform:uppercase;letter-spacing:2px;font-weight:800;font-size:16px">
         <div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:4px">Ask your child to find this code on their Profile page</div>
       </div>
-      <button class="auth-btn" onclick="parentSignUp()" style="background:linear-gradient(135deg,#6366F1,#8B5CF6)">Create Parent Account &#x2192;</button>
+      <button class="auth-btn" onclick="parentSignUp(this)" style="background:linear-gradient(135deg,#6366F1,#8B5CF6)">Create Parent Account &#x2192;</button>
     </div>
   </div>
 </div>
@@ -1015,7 +1015,7 @@ async function onAuthStateChange(user){
 
 // ── PARENT SYSTEM ──
 
-async function parentSignUp(){
+async function parentSignUp(btn){
   const name=document.getElementById('parent-name').value.trim();
   const email=document.getElementById('parent-email').value.trim();
   const password=document.getElementById('parent-password').value;
@@ -1026,7 +1026,7 @@ async function parentSignUp(){
   // Find student by parent_code
   const{data:student}=await db.from('profiles').select('id,name').eq('parent_code',code).single();
   if(!student){showAuthError('Parent code not found. Ask your child to check their Profile page.');return;}
-  const btn=event.target;btn.disabled=true;btn.textContent='Creating account…';
+  btn.disabled=true;btn.textContent='Creating account…';
   const{data:authData,error}=await db.auth.signUp({email,password,options:{data:{name,is_parent:true}}});
   btn.disabled=false;btn.innerHTML='Create Parent Account &#x2192;';
   if(error){showAuthError(error.message);return;}
