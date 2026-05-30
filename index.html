@@ -512,7 +512,8 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 
     <div class="teacher-section" style="margin-bottom:14px">
       <h3 style="font-size:13px;font-weight:900;margin-bottom:12px">&#x1F512; Change Password</h3>
-      <input class="form-input" id="profile-new-password" type="password" placeholder="Enter new password (min 6 chars)" style="margin-bottom:10px">
+      <input class="form-input" id="profile-current-password" type="password" placeholder="Current password" style="margin-bottom:10px">
+      <input class="form-input" id="profile-new-password" type="password" placeholder="New password (min 6 chars)" style="margin-bottom:10px">
       <input class="form-input" id="profile-confirm-password" type="password" placeholder="Confirm new password" style="margin-bottom:10px">
       <button class="start-today" onclick="updatePassword()" id="profile-password-btn">Update Password</button>
       <div id="profile-password-msg" style="font-size:12px;font-weight:700;margin-top:8px;display:none"></div>
@@ -1328,6 +1329,7 @@ function showProfileScreen(){
   document.getElementById('profile-email').textContent=currentUser?currentUser.email:'—';
   document.getElementById('profile-year').textContent=userProfile&&userProfile.year_group?'Year '+userProfile.year_group:'—';
   document.getElementById('profile-new-name').value='';
+  document.getElementById('profile-current-password').value='';
   document.getElementById('profile-new-password').value='';
   document.getElementById('profile-confirm-password').value='';
   document.getElementById('profile-name-msg').style.display='none';
@@ -1355,17 +1357,25 @@ async function updateDisplayName(){
 }
 
 async function updatePassword(){
+  const currentPass=document.getElementById('profile-current-password').value;
   const newPass=document.getElementById('profile-new-password').value;
   const confirmPass=document.getElementById('profile-confirm-password').value;
   const msg=document.getElementById('profile-password-msg');
   const btn=document.getElementById('profile-password-btn');
-  if(!newPass||newPass.length<6){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Password must be at least 6 characters.';return;}
-  if(newPass!==confirmPass){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Passwords do not match.';return;}
-  btn.disabled=true;btn.textContent='Updating…';
+  msg.style.display='none';
+  if(!currentPass){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Please enter your current password.';return;}
+  if(!newPass||newPass.length<6){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='New password must be at least 6 characters.';return;}
+  if(newPass!==confirmPass){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='New passwords do not match.';return;}
+  if(currentPass===newPass){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='New password must be different from your current password.';return;}
+  btn.disabled=true;btn.textContent='Verifying…';
+  const{error:signInError}=await db.auth.signInWithPassword({email:currentUser.email,password:currentPass});
+  if(signInError){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Current password is incorrect.';btn.disabled=false;btn.textContent='Update Password';return;}
+  btn.textContent='Updating…';
   try{
     const{error}=await db.auth.updateUser({password:newPass});
     if(error)throw error;
     msg.style.display='block';msg.style.color='var(--good)';msg.textContent='✓ Password updated successfully!';
+    document.getElementById('profile-current-password').value='';
     document.getElementById('profile-new-password').value='';
     document.getElementById('profile-confirm-password').value='';
   }catch(e){
