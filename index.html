@@ -34,6 +34,8 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .fire{animation:flicker 1.5s ease-in-out infinite}
 @keyframes flicker{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(2deg)}}
 .nav-user{font-size:12px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:8px}
+.profile-btn{background:none;border:2px solid var(--border);border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:.2s;padding:0;flex-shrink:0}
+.profile-btn:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light)}
 .sign-out-btn{padding:4px 10px;border-radius:8px;border:2px solid var(--border);background:none;font-family:"Nunito",sans-serif;font-size:11px;font-weight:800;cursor:pointer;color:var(--muted);transition:.2s}
 .sign-out-btn:hover{border-color:var(--hard);color:var(--hard)}
 
@@ -307,6 +309,9 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="streak-pill"><span class="fire">&#x1F525;</span><span id="nav-streak">0</span></div>
+    <button class="profile-btn" onclick="showScreen('profile')" aria-label="My Profile">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    </button>
     <button class="sign-out-btn" onclick="signOut()">Sign out</button>
   </div>
 </nav>
@@ -467,8 +472,54 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <div class="dash-card dash-full"><div class="dash-lbl">&#x1F5D3;&#xFE0F; 4-Week Activity</div><div class="heatmap" id="d-heatmap"></div></div>
     </div>
+    <div class="teacher-section" style="margin-top:12px">
+      <h3 style="font-size:13px;font-weight:900;margin-bottom:12px">&#x1F510; Reset Student Password</h3>
+      <input class="form-input" id="teacher-new-password" type="password" placeholder="Enter new password for student" style="margin-bottom:10px">
+      <button class="start-today" onclick="teacherResetPassword()" id="teacher-reset-btn" style="background:linear-gradient(135deg,#6366F1,#8B5CF6)">Set New Password</button>
+      <div id="teacher-reset-msg" style="font-size:12px;font-weight:700;margin-top:8px;display:none"></div>
+    </div>
   </div>
 </div>
+</div>
+
+<div class="screen" id="screen-profile">
+  <div style="max-width:480px;margin:0 auto">
+    <h2 style="font-size:20px;font-weight:900;margin-bottom:4px">&#x1F464; My Profile</h2>
+    <p style="color:var(--muted);font-size:13px;font-weight:600;margin-bottom:20px">Your account details</p>
+
+    <div class="teacher-section" style="margin-bottom:14px">
+      <h3 style="font-size:13px;font-weight:900;margin-bottom:12px">&#x1F4CB; Account Details</h3>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Display Name</div>
+        <div style="font-size:15px;font-weight:800" id="profile-name">—</div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Email</div>
+        <div style="font-size:15px;font-weight:800" id="profile-email">—</div>
+      </div>
+      <div>
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Year Group</div>
+        <div style="font-size:15px;font-weight:800" id="profile-year">—</div>
+      </div>
+    </div>
+
+    <div class="teacher-section" style="margin-bottom:14px">
+      <h3 style="font-size:13px;font-weight:900;margin-bottom:12px">&#x270F;&#xFE0F; Change Display Name</h3>
+      <input class="form-input" id="profile-new-name" type="text" placeholder="Enter new display name" style="margin-bottom:10px">
+      <button class="start-today" onclick="updateDisplayName()" id="profile-name-btn">Update Name</button>
+      <div id="profile-name-msg" style="font-size:12px;font-weight:700;margin-top:8px;display:none"></div>
+    </div>
+
+    <div class="teacher-section" style="margin-bottom:14px">
+      <h3 style="font-size:13px;font-weight:900;margin-bottom:12px">&#x1F512; Change Password</h3>
+      <input class="form-input" id="profile-new-password" type="password" placeholder="Enter new password (min 6 chars)" style="margin-bottom:10px">
+      <input class="form-input" id="profile-confirm-password" type="password" placeholder="Confirm new password" style="margin-bottom:10px">
+      <button class="start-today" onclick="updatePassword()" id="profile-password-btn">Update Password</button>
+      <div id="profile-password-msg" style="font-size:12px;font-weight:700;margin-top:8px;display:none"></div>
+    </div>
+
+    <button onclick="showScreen('home')" style="width:100%;padding:12px;border-radius:var(--radius);border:2px solid var(--border);background:var(--surface);font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;color:var(--muted)">&#x2190; Back to Home</button>
+  </div>
 </div>
 
 <script>
@@ -515,8 +566,10 @@ let cardStates={};
 // ── SUPABASE SYNC ──
 async function loadFromSupabase(){
   if(!currentUser) return;
+  const userId=currentUser.id; // capture now — user may change during async ops
   // Load app state
-  const{data:state}=await db.from('app_state').select('*').eq('user_id',currentUser.id).single();
+  const{data:state}=await db.from('app_state').select('*').eq('user_id',userId).single();
+  if(currentUser.id!==userId)return; // user changed while loading — bail out
   if(state){
     APP.streak=state.streak||0;
     APP.lastStudy=state.last_study;
@@ -529,12 +582,9 @@ async function loadFromSupabase(){
     if(state.daily_new) APP.dailyNew=state.daily_new;
     if(state.daily_total) APP.dailyTotal=state.daily_total;
   }
-  // Save default unlocks if first login
-  if(!state||!state.unlocks||Object.keys(state.unlocks).length===0){
-    saveAppState(); // non-blocking
-  }
   // Load card progress
-  const{data:progress}=await db.from('card_progress').select('*').eq('user_id',currentUser.id);
+  const{data:progress}=await db.from('card_progress').select('*').eq('user_id',userId);
+  if(currentUser.id!==userId)return; // user changed while loading — bail out
   if(progress){
     progress.forEach(p=>{
       cardStates[p.card_id]={
@@ -543,12 +593,17 @@ async function loadFromSupabase(){
       };
     });
   }
-  recalcStreak();
+  // Check and update streak based on loaded data
+  checkStreak();
+  // Only save defaults if genuinely first login, or always save updated streak
+  saveAppState(); // non-blocking — persists streak and any defaults
 }
 
 async function saveAppState(){
   if(!currentUser) return;
+  const userId=currentUser.id;
   const payload={
+    user_id:userId,
     streak:APP.streak,
     last_study:APP.lastStudy,
     xp:APP.xp,
@@ -558,11 +613,8 @@ async function saveAppState(){
     updated_at:new Date().toISOString()
   };
   try{
-    const{data,error}=await db.from('app_state').update(payload).eq('user_id',currentUser.id).select();
-    if(error||!data||data.length===0){
-      // No existing row — create one
-      await db.from('app_state').insert({user_id:currentUser.id,...payload});
-    }
+    const{error}=await db.from('app_state').upsert(payload,{onConflict:'user_id'});
+    if(error)console.error('saveAppState error:',error);
   }catch(e){console.error('saveAppState failed:',e);}
 }
 
@@ -650,10 +702,10 @@ async function signUp(){
 }
 
 async function signOut(){
+  // Clear user identity FIRST — prevents any stray saveAppState writing zeros to Supabase
+  currentUser=null;userProfile=null;isTeacher=false;supabaseLoaded=false;
   await db.auth.signOut();
   // Note: intentionally NOT clearing localStorage ss_done_ — persists so same-day re-login still shows complete
-  supabaseLoaded=false;
-  currentUser=null;userProfile=null;isTeacher=false;
   session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
   todayDone={};
   bonusShown=new Set();
@@ -678,7 +730,6 @@ async function onAuthStateChange(user){
     if(!supabaseLoaded){
       document.getElementById('auth-screen').style.display='none';
       document.getElementById('main-app').style.display='block';
-      updateHome();
       try{await loadFromSupabase();}catch(e){console.error('loadFromSupabase error:',e);}
       loadTodayDone();
       supabaseLoaded=true;
@@ -812,8 +863,12 @@ function getTodaySubject(){
 
 function checkStreak(){
   const today=getTodayKey(),yesterday=new Date(Date.now()-86400000).toDateString();
-  if(APP.lastStudy===today)return;
-  APP.streak=APP.lastStudy===yesterday?APP.streak+1:1;
+  if(APP.lastStudy===today)return; // already studied today, streak unchanged
+  if(APP.lastStudy===yesterday){
+    APP.streak=APP.streak+1; // studied yesterday — extend streak
+  } else {
+    APP.streak=1; // first study ever, or gap in days — start/restart at 1
+  }
   APP.lastStudy=today;
 }
 
@@ -850,6 +905,7 @@ function showScreen(id){
   if(['home','topics','quiz','complete'].includes(id))document.querySelector('.nav-tab').classList.add('active');
   if(id==='dashboard'){document.querySelectorAll('.nav-tab')[1].classList.add('active');renderDashboard();}
   if(id==='home')updateHome();
+  if(id==='profile')showProfileScreen();
 }
 
 function updateHome(){
@@ -932,6 +988,8 @@ let lastSessionStats=null; // captured the moment the last card is rated
 
 function startTodaySession(){startSubjectSession(getTodaySubject());}
 function startBonus(){
+  checkStreak();
+  saveAppState();
   const s=session.subject||getTodaySubject();
   const q=buildQueue(s,true);
   if(!q.length){alert('No more new cards available right now! 🎉');return;}
@@ -940,6 +998,7 @@ function startBonus(){
 }
 function startSubjectSession(s){
   checkStreak();
+  saveAppState(); // save streak immediately after checking
   const q=buildQueue(s,false);
   if(!q.length){return;} // silently do nothing - button should already be disabled
   session={cards:q,idx:0,good:0,xp:0,subject:s,bonusMode:false,rated:{}};
@@ -1196,6 +1255,9 @@ async function selectStudent(profile,state){
   renderUnlockControls(profile,state.unlocks||{});
   document.getElementById('student-list').querySelectorAll('.student-card').forEach(c=>c.classList.remove('selected'));
   event.currentTarget&&event.currentTarget.classList&&event.currentTarget.classList.add('selected');
+  // Clear password reset fields when switching students
+  document.getElementById('teacher-new-password').value='';
+  document.getElementById('teacher-reset-msg').style.display='none';
 }
 
 function renderUnlockControls(profile,unlocks){
@@ -1229,6 +1291,87 @@ async function teacherToggle(userId,subject,code,unlock,currentUnlocks){
   renderUnlockControls({id:userId},newUnlocks);
   // If it's the current user, update their app too
   if(currentUser&&currentUser.id===userId){APP.unlocks=newUnlocks;updateHome();}
+}
+
+// ── TEACHER PASSWORD RESET ──
+async function teacherResetPassword(){
+  const newPass=document.getElementById('teacher-new-password').value;
+  const msg=document.getElementById('teacher-reset-msg');
+  const btn=document.getElementById('teacher-reset-btn');
+  if(!newPass||newPass.length<6){
+    msg.style.display='block';msg.style.color='var(--hard)';
+    msg.textContent='Password must be at least 6 characters.';return;
+  }
+  if(!selectedStudentId){
+    msg.style.display='block';msg.style.color='var(--hard)';
+    msg.textContent='No student selected.';return;
+  }
+  btn.disabled=true;btn.textContent='Updating…';
+  try{
+    const{error}=await db.auth.admin.updateUserById(selectedStudentId,{password:newPass});
+    if(error)throw error;
+    msg.style.display='block';msg.style.color='var(--good)';
+    msg.textContent='✓ Password updated successfully!';
+    document.getElementById('teacher-new-password').value='';
+  }catch(e){
+    // admin API not available from client — use edge function fallback message
+    msg.style.display='block';msg.style.color='var(--hard)';
+    msg.textContent='Password reset requires admin access. Ask the student to reset via their profile page.';
+  }
+  btn.disabled=false;btn.textContent='Set New Password';
+}
+
+// ── PROFILE ──
+function showProfileScreen(){
+  const name=userProfile&&userProfile.name?userProfile.name.replace(/\s*\(teacher account\)\s*/i,'').trim():'—';
+  document.getElementById('profile-name').textContent=name;
+  document.getElementById('profile-email').textContent=currentUser?currentUser.email:'—';
+  document.getElementById('profile-year').textContent=userProfile&&userProfile.year_group?'Year '+userProfile.year_group:'—';
+  document.getElementById('profile-new-name').value='';
+  document.getElementById('profile-new-password').value='';
+  document.getElementById('profile-confirm-password').value='';
+  document.getElementById('profile-name-msg').style.display='none';
+  document.getElementById('profile-password-msg').style.display='none';
+}
+
+async function updateDisplayName(){
+  const newName=document.getElementById('profile-new-name').value.trim();
+  const msg=document.getElementById('profile-name-msg');
+  const btn=document.getElementById('profile-name-btn');
+  if(!newName){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Please enter a name.';return;}
+  btn.disabled=true;btn.textContent='Updating…';
+  try{
+    const{error}=await db.from('profiles').update({name:newName}).eq('id',currentUser.id);
+    if(error)throw error;
+    userProfile.name=newName;
+    document.getElementById('profile-name').textContent=newName;
+    updateHome();
+    msg.style.display='block';msg.style.color='var(--good)';msg.textContent='✓ Name updated successfully!';
+    document.getElementById('profile-new-name').value='';
+  }catch(e){
+    msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Failed to update name. Please try again.';
+  }
+  btn.disabled=false;btn.textContent='Update Name';
+}
+
+async function updatePassword(){
+  const newPass=document.getElementById('profile-new-password').value;
+  const confirmPass=document.getElementById('profile-confirm-password').value;
+  const msg=document.getElementById('profile-password-msg');
+  const btn=document.getElementById('profile-password-btn');
+  if(!newPass||newPass.length<6){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Password must be at least 6 characters.';return;}
+  if(newPass!==confirmPass){msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Passwords do not match.';return;}
+  btn.disabled=true;btn.textContent='Updating…';
+  try{
+    const{error}=await db.auth.updateUser({password:newPass});
+    if(error)throw error;
+    msg.style.display='block';msg.style.color='var(--good)';msg.textContent='✓ Password updated successfully!';
+    document.getElementById('profile-new-password').value='';
+    document.getElementById('profile-confirm-password').value='';
+  }catch(e){
+    msg.style.display='block';msg.style.color='var(--hard)';msg.textContent='Failed to update password. Please try again.';
+  }
+  btn.disabled=false;btn.textContent='Update Password';
 }
 
 // ── INIT ──
