@@ -34,7 +34,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .fire{animation:flicker 1.5s ease-in-out infinite}
 @keyframes flicker{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(2deg)}}
 .nav-user{font-size:12px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:8px}
-.profile-btn{background:none;border:2px solid var(--border);border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:.2s;padding:0;flex-shrink:0;position:relative}
+.profile-btn{background:none;border:2px solid var(--border);border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:.2s;padding:0;flex-shrink:0}
 .profile-btn:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light)}
 .profile-dropdown{position:absolute;top:44px;right:0;background:var(--surface);border:2px solid var(--border);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);min-width:160px;z-index:999;overflow:hidden;display:none}
 .profile-dropdown.open{display:block;animation:fadeUp .15s ease}
@@ -328,15 +328,16 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
   </div>
   <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
     <div class="streak-pill"><span class="fire">&#x1F525;</span><span id="nav-streak">0</span></div>
-    <button class="profile-btn" onclick="toggleProfileDropdown(event)" aria-label="My Profile">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    <div style="position:relative;flex-shrink:0">
+      <button class="profile-btn" onclick="toggleProfileDropdown(event)" aria-label="My Profile">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      </button>
       <div class="profile-dropdown" id="profile-dropdown">
         <button class="pd-item" onclick="closeDropdown();showScreen('profile')">👤 My Profile</button>
         <div class="pd-sep"></div>
         <button class="pd-item danger" onclick="closeDropdown();signOut()">🚪 Sign Out</button>
       </div>
-    </button>
-    <button class="sign-out-btn" onclick="signOut()">Sign out</button>
+    </div>
   </div>
 </nav>
 
