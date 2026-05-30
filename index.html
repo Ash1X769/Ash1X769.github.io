@@ -594,8 +594,6 @@ async function loadFromSupabase(){
       };
     });
   }
-  // Check and update streak based on loaded data
-  checkStreak();
   // Only save defaults if genuinely first login, or always save updated streak
   saveAppState(); // non-blocking — persists streak and any defaults
 }
@@ -864,11 +862,13 @@ function getTodaySubject(){
 
 function checkStreak(){
   const today=getTodayKey(),yesterday=new Date(Date.now()-86400000).toDateString();
-  if(APP.lastStudy===today)return; // already studied today, streak unchanged
+  if(APP.lastStudy===today)return; // already completed a session today, streak unchanged
   if(APP.lastStudy===yesterday){
-    APP.streak=APP.streak+1; // studied yesterday — extend streak
+    APP.streak=APP.streak+1; // completed yesterday — extend streak
+  } else if(!APP.lastStudy){
+    APP.streak=1; // very first session ever
   } else {
-    APP.streak=1; // first study ever, or gap in days — start/restart at 1
+    APP.streak=1; // gap of more than 1 day — restart streak
   }
   APP.lastStudy=today;
 }
@@ -989,8 +989,6 @@ let lastSessionStats=null; // captured the moment the last card is rated
 
 function startTodaySession(){startSubjectSession(getTodaySubject());}
 function startBonus(){
-  checkStreak();
-  saveAppState();
   const s=session.subject||getTodaySubject();
   const q=buildQueue(s,true);
   if(!q.length){alert('No more new cards available right now! 🎉');return;}
@@ -998,8 +996,6 @@ function startBonus(){
   showScreen('quiz');showCard();
 }
 function startSubjectSession(s){
-  checkStreak();
-  saveAppState(); // save streak immediately after checking
   const q=buildQueue(s,false);
   if(!q.length){return;} // silently do nothing - button should already be disabled
   session={cards:q,idx:0,good:0,xp:0,subject:s,bonusMode:false,rated:{}};
@@ -1119,6 +1115,8 @@ function rateCard(grade){
   const nextUnrated=session.cards.findIndex((_,i)=>session.rated[i]===undefined);
   if(nextUnrated===-1){
     // Write to sessionStorage immediately — survives any JS state change
+    checkStreak();
+    saveAppState();
     sessionStorage.setItem('ss_total', session.cards.length);
     sessionStorage.setItem('ss_good', session.good);
     sessionStorage.setItem('ss_xp', session.xp);
