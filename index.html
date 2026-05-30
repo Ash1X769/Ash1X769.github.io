@@ -24,29 +24,28 @@
 body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
 /* NAV */
-.nav{background:var(--surface);border-bottom:2px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:68px;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,0.08);gap:4px}
-.logo{font-size:21px;font-weight:900;display:flex;align-items:center;gap:7px}
-.logo-text{background:linear-gradient(135deg,#22C55E,#3B82F6,#A855F7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.nav-tabs{display:flex;gap:2px;background:#F1F5F9;border-radius:10px;padding:3px}
-.nav-tab{padding:6px 9px;border-radius:8px;border:none;background:transparent;font-family:"Nunito",sans-serif;font-weight:700;font-size:12px;cursor:pointer;color:var(--muted);transition:.2s;white-space:nowrap}
-.nav-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-.streak-pill{display:flex;align-items:center;gap:5px;background:var(--streak-light);border:2px solid var(--streak);border-radius:20px;padding:6px 12px;font-weight:800;font-size:14px;flex-shrink:0;color:var(--streak)}
+.nav{background:#fff;border-bottom:1px solid #E8EDF2;padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:200;box-shadow:0 1px 0 #E8EDF2,0 4px 16px rgba(15,23,42,0.06);gap:16px}
+.logo{font-size:20px;font-weight:900;display:flex;align-items:center;gap:8px;text-decoration:none;flex-shrink:0}
+.logo-text{background:linear-gradient(135deg,#22C55E 0%,#6366F1 60%,#A855F7 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.3px}
+.nav-tabs{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.nav-tab{padding:8px 16px;border-radius:10px;border:none;background:transparent;font-family:"Nunito",sans-serif;font-weight:700;font-size:14px;cursor:pointer;color:#64748B;transition:all .18s;white-space:nowrap;letter-spacing:-0.1px}
+.nav-tab:hover{background:#F1F5F9;color:#0F172A}
+.nav-tab.active{background:#6366F1;color:#fff;box-shadow:0 2px 8px rgba(99,102,241,0.35)}
+.nav-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.streak-pill{display:flex;align-items:center;gap:5px;background:#FFF7ED;border:1.5px solid #F97316;border-radius:24px;padding:6px 14px;font-weight:800;font-size:14px;color:#F97316;flex-shrink:0;letter-spacing:-0.2px}
 .fire{animation:flicker 1.5s ease-in-out infinite}
 @keyframes flicker{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.15) rotate(2deg)}}
-.nav-user{font-size:12px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:8px}
-.profile-btn{background:none;border:2px solid var(--border);border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);transition:.2s;padding:0;flex-shrink:0}
-.profile-btn:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light)}
-.profile-dropdown{position:absolute;top:44px;right:0;background:var(--surface);border:2px solid var(--border);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,0.12);min-width:160px;z-index:999;overflow:hidden;display:none}
-.profile-dropdown.open{display:block;animation:fadeUp .15s ease}
-.pd-item{display:flex;align-items:center;gap:10px;padding:13px 16px;font-family:"Nunito",sans-serif;font-size:14px;font-weight:800;cursor:pointer;color:var(--text);border:none;background:none;width:100%;text-align:left;transition:.15s}
-.pd-item:hover{background:#F8FAFC}
-.pd-item.danger{color:var(--text)}
-.pd-item.danger:hover{background:#F8FAFC}
-.pd-sep{height:1px;background:var(--border);margin:0}
-.sign-out-btn{padding:4px 8px;border-radius:8px;border:2px solid var(--border);background:none;font-family:"Nunito",sans-serif;font-size:10px;font-weight:800;cursor:pointer;color:var(--muted);transition:.2s;white-space:nowrap}
-.sign-out-btn:hover{border-color:var(--hard);color:var(--hard)}
-@media(min-width:521px){.nav{padding:0 20px}}
-@media(max-width:520px){.sign-out-btn{display:none}.logo-text{display:none}.profile-btn{width:30px;height:30px}}
+.profile-wrap{position:relative;flex-shrink:0}
+.profile-btn{background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748B;transition:all .18s;padding:0}
+.profile-btn:hover{border-color:#6366F1;color:#6366F1;background:#EEF2FF;transform:scale(1.05)}
+.profile-dropdown{position:absolute;top:calc(100% + 8px);right:0;background:#fff;border:1px solid #E2E8F0;border-radius:16px;box-shadow:0 8px 32px rgba(15,23,42,0.12),0 2px 8px rgba(15,23,42,0.06);min-width:180px;z-index:999;overflow:hidden;display:none;padding:6px}
+.profile-dropdown.open{display:block;animation:dropDown .15s ease}
+@keyframes dropDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.pd-item{display:flex;align-items:center;gap:10px;padding:10px 12px;font-family:"Nunito",sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:#0F172A;border:none;background:none;width:100%;text-align:left;transition:.15s;border-radius:10px}
+.pd-item:hover{background:#F1F5F9}
+.pd-sep{height:1px;background:#F1F5F9;margin:4px 0}
+@media(max-width:600px){.nav{padding:0 16px;gap:8px}.nav-tab{padding:7px 10px;font-size:13px}.logo-text{display:none}.nav-tab{padding:7px 8px;font-size:12px}}
+@media(max-width:380px){.streak-pill{padding:5px 9px;font-size:13px}}
 
 /* SCREENS */
 .screen{display:none;padding:20px;max-width:860px;margin:0 auto}
@@ -321,22 +320,22 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 <!-- MAIN APP -->
 <div id="main-app" style="display:none">
 <nav class="nav">
-  <div class="logo" style="flex-shrink:1;min-width:0;overflow:hidden">&#x1F52C;<span class="logo-text" style="white-space:nowrap">ScienceSpark</span></div>
-  <div class="nav-tabs" style="flex-shrink:1;min-width:0">
+  <div class="logo">&#x1F52C;<span class="logo-text">ScienceSpark</span></div>
+  <div class="nav-tabs">
     <button class="nav-tab active" onclick="showScreen('home')">Learn</button>
     <button class="nav-tab" onclick="showScreen('history')">History</button>
     <button class="nav-tab" onclick="showScreen('dashboard')">Dashboard</button>
   </div>
-  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+  <div class="nav-right">
     <div class="streak-pill"><span class="fire">&#x1F525;</span><span id="nav-streak">0</span></div>
-    <div style="position:relative;flex-shrink:0">
+    <div class="profile-wrap">
       <button class="profile-btn" onclick="toggleProfileDropdown(event)" aria-label="My Profile">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
       </button>
       <div class="profile-dropdown" id="profile-dropdown">
         <button class="pd-item" onclick="closeDropdown();showScreen('profile')">👤 My Profile</button>
         <div class="pd-sep"></div>
-        <button class="pd-item danger" onclick="closeDropdown();signOut()">🚪 Sign Out</button>
+        <button class="pd-item" onclick="closeDropdown();signOut()">🚪 Sign Out</button>
       </div>
     </div>
   </div>
