@@ -244,8 +244,8 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .insight{background:var(--indigo-light);border-radius:9px;padding:11px 13px;margin-top:9px;border-left:4px solid var(--indigo)}
 .insight p{font-size:12px;font-weight:700;color:#4338CA;line-height:1.5}
 .student-card{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:.2s}
-.student-card:hover{border-color:var(--indigo);background:var(--indigo-light);box-shadow:0 0 0 3px rgba(99,102,241,0.2)}
-.student-card.selected{border-color:var(--indigo);background:var(--indigo-light);box-shadow:0 0 0 3px rgba(99,102,241,0.2)}
+.student-card:hover{border-color:var(--indigo);background:#E0E7FF;box-shadow:0 0 0 3px rgba(99,102,241,0.25);cursor:pointer}
+.student-card.selected{border-color:var(--indigo);background:#E0E7FF;box-shadow:0 0 0 3px rgba(99,102,241,0.25)}
 .student-name{font-size:15px;font-weight:900;margin-bottom:2px}
 .student-meta{font-size:12px;color:var(--muted);font-weight:600}
 .loading-spinner{text-align:center;padding:40px;color:var(--muted);font-weight:700;font-size:14px}
@@ -1440,26 +1440,37 @@ function renderUnlockControls(profile,unlocks){
     });
     wrap.innerHTML=inner;
     wrap.querySelectorAll('.toggle-btn').forEach(btn=>{
-      btn.onclick=function(){teacherToggle(this.dataset.userid,this.dataset.subject,this.dataset.code,this.dataset.unlock==='true',unlocks);};
+      btn.onclick=function(){teacherToggle(this.dataset.userid,this.dataset.subject,this.dataset.code,this.dataset.unlock==='true');};
     });
     c.appendChild(wrap);
   });
 }
 
-async function teacherToggle(userId,subject,code,unlock,currentUnlocks){
-  const newUnlocks={...currentUnlocks};
-  if(!newUnlocks[subject])newUnlocks[subject]={};
-  newUnlocks[subject][code]=unlock;
-  const{error}=await db.from('app_state').update({unlocks:newUnlocks}).eq('user_id',userId);
-  if(error){
-    alert('❌ Failed to save unlock: '+error.message);
-    return;
-  }
-  selectedStudentState.unlocks=newUnlocks;
-  renderUnlockControls({id:userId},newUnlocks);
-  // If it's the current user, update their app too
-  if(currentUser&&currentUser.id===userId){APP.unlocks=newUnlocks;updateHome();}
+async function teacherToggle(userId,subject,code,unlock){
+  const currentUnlocks=selectedStudentState&&selectedStudentState.unlocks?JSON.parse(JSON.stringify(selectedStudentState.unlocks)):{};
+  if(!currentUnlocks[subject])currentUnlocks[subject]={};
+  currentUnlocks[subject][code]=unlock;
+  console.log("[teacherToggle] saving",userId,subject,code,unlock,JSON.stringify(currentUnlocks));
+  const{error}=await db.from("app_state").update({unlocks:currentUnlocks}).eq("user_id",userId);
+  if(error){alert("Failed to save: "+error.message);return;}
+  selectedStudentState.unlocks=currentUnlocks;
+  renderUnlockControls({id:userId},currentUnlocks);
+  if(currentUser&&currentUser.id===userId){APP.unlocks=currentUnlocks;updateHome();}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ── TEACHER PASSWORD RESET ──
 async function teacherResetPassword(){
