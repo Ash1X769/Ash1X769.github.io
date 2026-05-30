@@ -479,7 +479,10 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
   <div id="student-detail" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:16px;font-weight:900" id="dash-student-name">Student</div>
-      <button onclick="document.getElementById('student-detail').style.display='none'" style="background:none;border:none;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer">&#x2190; All students</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="viewStudentHistory()" style="background:var(--indigo-light);border:2px solid var(--indigo);border-radius:10px;padding:5px 12px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;color:var(--indigo)">📖 View History</button>
+        <button onclick="document.getElementById('student-detail').style.display='none'" style="background:none;border:none;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer">&#x2190; All students</button>
+      </div>
     </div>
     <div class="teacher-section">
       <h3>&#x1F513; Topic Controls</h3>
@@ -934,7 +937,7 @@ function showScreen(id){
   window.scrollTo(0,0);
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   if(['home','topics','quiz','complete'].includes(id))document.querySelector('.nav-tab').classList.add('active');
-  if(id==='history'){document.querySelectorAll('.nav-tab')[1].classList.add('active');renderHistory('all');}
+  if(id==='history'){document.querySelectorAll('.nav-tab')[1].classList.add('active');historyOverrideUser=null;renderHistory('all');}
   if(id==='dashboard'){document.querySelectorAll('.nav-tab')[2].classList.add('active');renderDashboard();}
   if(id==='home')updateHome();
   if(id==='profile')showProfileScreen();
@@ -1186,6 +1189,7 @@ function showComplete(){
 
 // ── STUDY HISTORY ──
 let historyFilter='all';
+let historyOverrideUser=null;
 const RATING_LABELS=['😵 Again','😰 Hard','🙂 Good','🌟 Easy!'];
 const RATING_CLASSES=['rating-again','rating-hard','rating-good','rating-easy'];
 
@@ -1193,17 +1197,33 @@ function filterHistory(f){
   historyFilter=f;
   document.querySelectorAll('#history-filters .stab').forEach(b=>b.classList.remove('active'));
   event.target.classList.add('active');
-  renderHistory(f);
+  renderHistory(f, historyOverrideUser);
 }
 
-async function renderHistory(filter){
+function viewStudentHistory(){
+  if(!selectedStudentId){return;}
+  showScreen('history');
+  renderHistory('all', selectedStudentId);
+}
+
+async function renderHistory(filter, overrideUserId){
+  historyOverrideUser=overrideUserId||null;
   const list=document.getElementById('history-list');
   list.innerHTML='<div class="loading-spinner">Loading…</div>';
   if(!currentUser){list.innerHTML='<div class="insight"><p>Please sign in to view your history.</p></div>';return;}
-  const userId=currentUser.id;
-  // For teacher viewing a student, use selectedStudentId if set; otherwise own history
-  const targetId=(isTeacher&&selectedStudentId&&filter==='student')?selectedStudentId:userId;
-  const{data:progress,error}=await db.from('card_progress').select('*').eq('user_id',userId).order('seen_at',{ascending:false}).limit(200);
+  const targetId=overrideUserId||currentUser.id;
+  const isViewingStudent=overrideUserId&&overrideUserId!==currentUser.id;
+  // Update subtitle to show whose history this is
+  const sub=document.getElementById('history-sub');
+  if(sub){
+    if(isViewingStudent){
+      const name=document.getElementById('dash-student-name').textContent.split(' — ')[0];
+      sub.textContent='Viewing history for '+name;
+    } else {
+      sub.textContent='Your personal study log';
+    }
+  }
+  const{data:progress,error}=await db.from('card_progress').select('*').eq('user_id',targetId).order('seen_at',{ascending:false}).limit(200);
   if(error||!progress||!progress.length){
     list.innerHTML='<div class="insight"><p>No cards rated yet — complete a session to see your history here! 🚀</p></div>';
     return;
@@ -1258,8 +1278,9 @@ async function renderHistory(filter){
       +'</div>'
       +'</div>';
   }).join('');
-  const sub=document.getElementById('history-sub');
-  if(sub)sub.textContent=filtered.length+' card'+(filtered.length!==1?'s':'')+' shown';
+
+  const countLabel=filtered.length+' card'+(filtered.length!==1?'s':'')+' shown';
+  if(sub)sub.textContent=isViewingStudent?sub.textContent+' — '+countLabel:countLabel;
 }
 
 function inferGrade(p){
