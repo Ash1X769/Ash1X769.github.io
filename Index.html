@@ -502,7 +502,7 @@ let supabaseLoaded=false;
 
 // ── IN-MEMORY STATE (synced to Supabase) ──
 let APP={
-  streak:0,lastStudy:null,xp:0,totalCards:0,
+  streak:0,lastStudy:null,xp:0,totalCards:0,totalCorrect:0,
   unlocks:{
     biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},
     chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},
@@ -522,6 +522,7 @@ async function loadFromSupabase(){
     APP.lastStudy=state.last_study;
     APP.xp=state.xp||0;
     APP.totalCards=state.total_cards||0;
+    APP.totalCorrect=state.total_correct||0;
     if(state.unlocks&&Object.keys(state.unlocks).length>0) APP.unlocks=state.unlocks;
     // Always ensure Biology B1 is unlocked — it's the entry point
     APP.unlocks.biology.b1=true;
@@ -541,34 +542,27 @@ async function loadFromSupabase(){
         due:p.due,seenAt:p.seen_at
       };
     });
-    // Reconstruct todayDone from seen_at — doesn't need daily_new column to exist
-    const todayStart=new Date();todayStart.setHours(0,0,0,0);
-    const t=getTodayKey();
-    if(!APP.dailyNew[t])APP.dailyNew[t]={};
-    progress.forEach(p=>{
-      if(p.seen_at&&new Date(p.seen_at)>=todayStart){
-        const card=CARDS.find(c=>c.id===p.card_id);
-        if(card)APP.dailyNew[t][card.subject]=(APP.dailyNew[t][card.subject]||0)+1;
-      }
-    });
-    SUBJECT_ORDER.forEach(s=>{if(getDailyNewCount(s)>=DAILY_NEW)todayDone[s]=true;});
   }
   recalcStreak();
 }
 
 async function saveAppState(){
   if(!currentUser) return;
+  const payload={
+    streak:APP.streak,
+    last_study:APP.lastStudy,
+    xp:APP.xp,
+    total_cards:APP.totalCards,
+    total_correct:APP.totalCorrect,
+    unlocks:APP.unlocks,
+    updated_at:new Date().toISOString()
+  };
   try{
-    await db.from('app_state').upsert({
-      user_id:currentUser.id,
-      streak:APP.streak,
-      last_study:APP.lastStudy,
-      xp:APP.xp,
-      total_cards:APP.totalCards,
-      unlocks:APP.unlocks,
-      daily_new:APP.dailyNew,
-      updated_at:new Date().toISOString()
-    },{onConflict:'user_id'});
+    const{data,error}=await db.from('app_state').update(payload).eq('user_id',currentUser.id).select();
+    if(error||!data||data.length===0){
+      // No existing row — create one
+      await db.from('app_state').insert({user_id:currentUser.id,...payload});
+    }
   }catch(e){console.error('saveAppState failed:',e);}
 }
 
@@ -657,12 +651,13 @@ async function signUp(){
 
 async function signOut(){
   await db.auth.signOut();
+  // Note: intentionally NOT clearing localStorage ss_done_ — persists so same-day re-login still shows complete
   supabaseLoaded=false;
   currentUser=null;userProfile=null;isTeacher=false;
   session={cards:[],idx:0,good:0,xp:0,subject:null,bonusMode:false,rated:{}};
   todayDone={};
   bonusShown=new Set();
-  APP={streak:0,lastStudy:null,xp:0,totalCards:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
+  APP={streak:0,lastStudy:null,xp:0,totalCards:0,totalCorrect:0,unlocks:{biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},physics:{p1:false,p2:false,p3:false,p4:false,p5:false,p6:false,p7:false}},dailyNew:{},dailyTotal:{}};
   cardStates={};
   document.getElementById('main-app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
@@ -684,15 +679,19 @@ async function onAuthStateChange(user){
       document.getElementById('auth-screen').style.display='none';
       document.getElementById('main-app').style.display='block';
       updateHome();
-      await loadFromSupabase();
+      try{await loadFromSupabase();}catch(e){console.error('loadFromSupabase error:',e);}
+      loadTodayDone();
       supabaseLoaded=true;
-      if(isTeacher){
-        document.querySelector('.nav-tabs').innerHTML=
-          '<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+
-          '<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
-      }
       showScreen('home');
       updateHome();
+    }
+    // Always apply teacher nav (runs on first load and token refresh)
+    if(isTeacher){
+      const tabs=document.querySelector('.nav-tabs');
+      if(tabs&&!tabs.dataset.teacherNav){
+        tabs.dataset.teacherNav='1';
+        tabs.innerHTML='<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+'<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
+      }
     }
     // Token refresh — just silently update currentUser, don't disrupt the UI
   } else {
@@ -746,6 +745,28 @@ function checkAutoUnlocks(){
 
 const isTopicUnlocked=(s,c)=>APP.unlocks[s][c]===true;
 const isSubjectUnlocked=s=>TOPIC_ORDER[s].some(t=>isTopicUnlocked(s,t));
+
+function markTodayDone(subject){
+  todayDone[subject]=true;
+  if(!currentUser)return;
+  const today=getTodayKey();
+  const key='ss_done_'+currentUser.id;
+  try{
+    const obj={};obj[today]={};
+    SUBJECT_ORDER.forEach(s=>{if(todayDone[s])obj[today][s]=true;});
+    localStorage.setItem(key,JSON.stringify(obj));
+  }catch(e){}
+}
+
+function loadTodayDone(){
+  if(!currentUser)return;
+  const today=getTodayKey();
+  const key='ss_done_'+currentUser.id;
+  try{
+    const stored=JSON.parse(localStorage.getItem(key)||'{}');
+    if(stored[today])Object.keys(stored[today]).forEach(s=>{todayDone[s]=true;});
+  }catch(e){}
+}
 
 function getTodayKey(){return new Date().toDateString();}
 function getDailyNewCount(s){const t=getTodayKey();return(APP.dailyNew[t]&&APP.dailyNew[t][s])||0;}
@@ -1020,7 +1041,7 @@ function rateCard(grade){
 
   // Update session state immediately
   session.rated[session.idx]=grade;
-  if(grade>=2)session.good++;
+  if(grade>=2){session.good++;APP.totalCorrect++;}
   const xp=[5,8,12,18][grade];
   session.xp+=xp;APP.xp+=xp;APP.totalCards++;
 
@@ -1062,7 +1083,7 @@ function showComplete(){
   document.getElementById('comp-emoji').innerHTML=pct>=80?'&#x1F389;':pct>=50?'&#x1F44D;':'&#x1F4AA;';
   document.getElementById('comp-title').textContent=pct>=80?'Amazing work!':pct>=50?'Good effort!':'Keep practising!';
   document.getElementById('comp-sub').textContent=pct>=80?'You really know your stuff!':pct>=50?'Getting better every day!':'Review these cards again soon!';
-  todayDone[subject]=true;
+  markTodayDone(subject);
   try{
     const newUnlocks=checkAutoUnlocks();
     const ub=document.getElementById('unlock-notice');
@@ -1071,6 +1092,8 @@ function showComplete(){
   }catch(e){}
   showScreen('complete');
   updateHome();
+  // Re-render dashboard in background so stats are fresh if user navigates there
+  if(typeof renderDashboard==='function')setTimeout(renderDashboard,100);
 }
 
 // ── TEACHER DASHBOARD ──
@@ -1088,6 +1111,7 @@ async function renderDashboard(){
         <div class="dash-card"><div class="dash-lbl">🔥 Streak</div><div class="dash-big" style="color:var(--streak)">${APP.streak}</div><div class="dash-sub">days in a row</div></div>
         <div class="dash-card"><div class="dash-lbl">⚡ Total XP</div><div class="dash-big" style="color:var(--indigo)">${APP.xp.toLocaleString()}</div><div class="dash-sub">xp earned</div></div>
         <div class="dash-card"><div class="dash-lbl">📚 Cards Done</div><div class="dash-big" style="color:var(--phys)">${APP.totalCards}</div><div class="dash-sub">reviewed</div></div>
+        <div class="dash-card"><div class="dash-lbl">✅ Correct</div><div class="dash-big" style="color:var(--good)">${APP.totalCorrect}</div><div class="dash-sub">${APP.totalCards>0?Math.round(APP.totalCorrect/APP.totalCards*100)+'% accuracy':'all time'}</div></div>
         <div class="dash-card"><div class="dash-lbl">🏆 Level</div><div class="dash-big" style="color:var(--bio)">${Math.floor(APP.xp/200)+1}</div><div class="dash-sub">current level</div></div>
         <div class="dash-card dash-full">
           <div class="dash-lbl">📈 Topics Unlocked</div>
@@ -1102,13 +1126,19 @@ async function renderDashboard(){
   }
   // Load all students
   document.getElementById('student-list').innerHTML='<div class="loading-spinner">Loading students&#x2026;</div>';
-  const{data:profiles}=await db.from('profiles').select('*').eq('role','student').order('name');
+  const{data:profiles,error:profilesError}=await db.from('profiles').select('*').neq('id',currentUser.id).order('name');
+  console.log('[Dashboard] profiles query →',profiles,profilesError);
+  if(profilesError){
+    document.getElementById('student-list').innerHTML='<div class="insight"><p>⚠️ Could not load students. Check Supabase RLS policies allow the teacher to read all profiles.</p><p style="font-size:11px;color:var(--muted);margin-top:6px">Error: '+profilesError.message+'</p></div>';
+    return;
+  }
   if(!profiles||!profiles.length){
     document.getElementById('student-list').innerHTML='<div class="insight"><p>No students have signed up yet. Share the app link with your tutees!</p></div>';
     return;
   }
   // Get app states for all students
-  const{data:states}=await db.from('app_state').select('*').in('user_id',profiles.map(p=>p.id));
+  const{data:states,error:statesError}=await db.from('app_state').select('*').in('user_id',profiles.map(p=>p.id));
+  console.log('[Dashboard] app_state query →',states,statesError);
   const stateMap={};
   if(states)states.forEach(s=>stateMap[s.user_id]=s);
   document.getElementById('student-list').innerHTML='';
@@ -1205,10 +1235,7 @@ async function teacherToggle(userId,subject,code,unlock,currentUnlocks){
 db.auth.onAuthStateChange((event,session)=>{
   onAuthStateChange(session?session.user:null);
 });
-// Check current session
-db.auth.getSession().then(({data:{session}})=>{
-  if(session)onAuthStateChange(session.user);
-});
+// Note: onAuthStateChange fires INITIAL_SESSION on load, so no need for getSession()
 </script>
 </body>
 </html>
