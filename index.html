@@ -241,7 +241,17 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .student-name{font-size:15px;font-weight:900;margin-bottom:2px}
 .student-meta{font-size:12px;color:var(--muted);font-weight:600}
 .loading-spinner{text-align:center;padding:40px;color:var(--muted);font-weight:700;font-size:14px}
-@media(max-width:480px){.dash-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(3,1fr)}}
+.hcard{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px}
+.hcard-left{flex:1;min-width:0}
+.hcard-q{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.4}
+.hcard-meta{font-size:11px;color:var(--muted);font-weight:600;display:flex;gap:8px;flex-wrap:wrap}
+.hcard-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.hcard-rating{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:900}
+.hcard-due{font-size:10px;font-weight:700;color:var(--muted);text-align:right}
+.rating-again{background:#FAF5FF;color:var(--again)}
+.rating-hard{background:#FEF2F2;color:var(--hard)}
+.rating-good{background:#FFFBEB;color:var(--ok)}
+.rating-easy{background:#F0FDF4;color:var(--good)}
 </style>
 </head>
 <body>
@@ -305,6 +315,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
   <div class="logo">&#x1F52C;<span class="logo-text">ScienceSpark</span></div>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="showScreen('home')">Learn</button>
+    <button class="nav-tab" onclick="showScreen('history')">History</button>
     <button class="nav-tab" onclick="showScreen('dashboard')">Dashboard</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
@@ -442,6 +453,21 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
       <button class="cbtn secondary" onclick="startBonus()">&#x26A1; Unlock More Cards</button>
     </div>
   </div>
+</div>
+
+<div class="screen" id="screen-history">
+  <div class="dash-hdr"><h2>📖 Study History</h2><p id="history-sub">Every card you've rated — and when it comes back</p></div>
+  <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap" id="history-filters">
+    <button class="stab active" onclick="filterHistory('all')">All</button>
+    <button class="stab" onclick="filterHistory('biology')">🌿 Biology</button>
+    <button class="stab" onclick="filterHistory('chemistry')">⚗️ Chemistry</button>
+    <button class="stab" onclick="filterHistory('physics')">⚡ Physics</button>
+    <button class="stab" onclick="filterHistory('again')">😵 Again</button>
+    <button class="stab" onclick="filterHistory('hard')">😰 Hard</button>
+    <button class="stab" onclick="filterHistory('good')">🙂 Good</button>
+    <button class="stab" onclick="filterHistory('easy')">🌟 Easy</button>
+  </div>
+  <div id="history-list"><div class="loading-spinner">Loading history…</div></div>
 </div>
 
 <div class="screen" id="screen-dashboard">
@@ -594,7 +620,7 @@ async function loadFromSupabase(){
     progress.forEach(p=>{
       cardStates[p.card_id]={
         interval:p.interval,ease:p.ease,reps:p.reps,lapses:p.lapses,
-        due:p.due,seenAt:p.seen_at
+        due:p.due,seenAt:p.seen_at,last_grade:p.last_grade
       };
     });
   }
@@ -620,7 +646,7 @@ async function saveAppState(){
   }catch(e){console.error('saveAppState failed:',e);}
 }
 
-async function saveCardState(cardId,state,card){
+async function saveCardState(cardId,state,card,grade){
   cardStates[cardId]=state;
   if(!currentUser) return;
   await db.from('card_progress').upsert({
@@ -634,6 +660,7 @@ async function saveCardState(cardId,state,card){
     lapses:state.lapses,
     due:state.due,
     seen_at:state.seenAt,
+    last_grade:grade,
     updated_at:new Date().toISOString()
   },{onConflict:'user_id,card_id'});
 }
@@ -743,7 +770,7 @@ async function onAuthStateChange(user){
       const tabs=document.querySelector('.nav-tabs');
       if(tabs&&!tabs.dataset.teacherNav){
         tabs.dataset.teacherNav='1';
-        tabs.innerHTML='<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+'<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
+        tabs.innerHTML='<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+'<button class="nav-tab" onclick="showScreen(\'history\')">History</button>'+'<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
       }
     }
     // Token refresh — just silently update currentUser, don't disrupt the UI
@@ -907,7 +934,8 @@ function showScreen(id){
   window.scrollTo(0,0);
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   if(['home','topics','quiz','complete'].includes(id))document.querySelector('.nav-tab').classList.add('active');
-  if(id==='dashboard'){document.querySelectorAll('.nav-tab')[1].classList.add('active');renderDashboard();}
+  if(id==='history'){document.querySelectorAll('.nav-tab')[1].classList.add('active');renderHistory('all');}
+  if(id==='dashboard'){document.querySelectorAll('.nav-tab')[2].classList.add('active');renderDashboard();}
   if(id==='home')updateHome();
   if(id==='profile')showProfileScreen();
 }
@@ -1107,7 +1135,7 @@ function rateCard(grade){
   // Persist to Supabase — allowed to fail
   try{
     const newState=sm2({...getCardState(card.id),seenAt:Date.now()},grade);
-    saveCardState(card.id,newState,card);
+    saveCardState(card.id,newState,card,grade);
     if(card._isNew)incrementDailyNew(card.subject);
     incrementDailyTotal(card.subject);
     saveDailyActivity(card.subject);
@@ -1154,6 +1182,92 @@ function showComplete(){
   updateHome();
   // Re-render dashboard in background so stats are fresh if user navigates there
   if(typeof renderDashboard==='function')setTimeout(renderDashboard,100);
+}
+
+// ── STUDY HISTORY ──
+let historyFilter='all';
+const RATING_LABELS=['😵 Again','😰 Hard','🙂 Good','🌟 Easy!'];
+const RATING_CLASSES=['rating-again','rating-hard','rating-good','rating-easy'];
+
+function filterHistory(f){
+  historyFilter=f;
+  document.querySelectorAll('#history-filters .stab').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderHistory(f);
+}
+
+async function renderHistory(filter){
+  const list=document.getElementById('history-list');
+  list.innerHTML='<div class="loading-spinner">Loading…</div>';
+  if(!currentUser){list.innerHTML='<div class="insight"><p>Please sign in to view your history.</p></div>';return;}
+  const userId=currentUser.id;
+  // For teacher viewing a student, use selectedStudentId if set; otherwise own history
+  const targetId=(isTeacher&&selectedStudentId&&filter==='student')?selectedStudentId:userId;
+  const{data:progress,error}=await db.from('card_progress').select('*').eq('user_id',userId).order('seen_at',{ascending:false}).limit(200);
+  if(error||!progress||!progress.length){
+    list.innerHTML='<div class="insight"><p>No cards rated yet — complete a session to see your history here! 🚀</p></div>';
+    return;
+  }
+  // Build a lookup of all cards by id
+  const cardLookup={};
+  for(const subj of Object.keys(CARD_DATA)){
+    for(const code of Object.keys(CARD_DATA[subj])){
+      CARD_DATA[subj][code].cards.forEach(c=>{cardLookup[c.id]=c;});
+    }
+  }
+  const ratingFilter=['again','hard','good','easy'];
+  const filtered=progress.filter(p=>{
+    const card=cardLookup[p.card_id];
+    if(!card)return false;
+    if(filter==='all')return true;
+    if(['biology','chemistry','physics'].includes(filter))return card.subject===filter;
+    if(ratingFilter.includes(filter)){
+      // Infer last rating from reps/ease/lapses heuristic — use lapses for 'again', ease for others
+      const grade=inferGrade(p);
+      return ratingFilter.indexOf(filter)===grade;
+    }
+    return true;
+  });
+  if(!filtered.length){
+    list.innerHTML='<div class="insight"><p>No cards match this filter yet.</p></div>';
+    return;
+  }
+  const now=Date.now();
+  list.innerHTML=filtered.map(p=>{
+    const card=cardLookup[p.card_id];
+    if(!card)return '';
+    const grade=inferGrade(p);
+    const subj=SUBJECTS[card.subject];
+    const dueMs=new Date(p.due).getTime();
+    const daysUntil=Math.ceil((dueMs-now)/86400000);
+    let dueStr='';
+    if(daysUntil<=0)dueStr='<span style="color:var(--hard);font-weight:800">Due now!</span>';
+    else if(daysUntil===1)dueStr='Due tomorrow';
+    else dueStr='Due in '+daysUntil+' days';
+    const seenDate=p.seen_at?new Date(p.seen_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'';
+    const q=card.q.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\s*\*\(\d+[^)]*\)\*/g,'').trim();
+    return '<div class="hcard">'
+      +'<div class="hcard-left">'
+      +'<div class="hcard-q">'+q+'</div>'
+      +'<div class="hcard-meta"><span>'+subj.icon+' '+subj.label+'</span><span>'+card.topic+'</span>'+(seenDate?'<span>Rated '+seenDate+'</span>':'')+'</div>'
+      +'</div>'
+      +'<div class="hcard-right">'
+      +'<div class="hcard-rating '+RATING_CLASSES[grade]+'">'+RATING_LABELS[grade]+'</div>'
+      +'<div class="hcard-due">'+dueStr+'</div>'
+      +'<div style="font-size:10px;color:var(--muted);font-weight:600">Reps: '+p.reps+'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  const sub=document.getElementById('history-sub');
+  if(sub)sub.textContent=filtered.length+' card'+(filtered.length!==1?'s':'')+' shown';
+}
+
+function inferGrade(p){
+  if(p.last_grade!==null&&p.last_grade!==undefined)return p.last_grade;
+  if(p.lapses>0&&p.reps===0)return 0;
+  if(p.ease<1.8)return 1;
+  if(p.ease>=2.8)return 3;
+  return 2;
 }
 
 // ── TEACHER DASHBOARD ──
