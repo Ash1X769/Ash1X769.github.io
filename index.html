@@ -682,13 +682,16 @@ async function onAuthStateChange(user){
       try{await loadFromSupabase();}catch(e){console.error('loadFromSupabase error:',e);}
       loadTodayDone();
       supabaseLoaded=true;
-      if(isTeacher){
-        document.querySelector('.nav-tabs').innerHTML=
-          '<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+
-          '<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
-      }
       showScreen('home');
       updateHome();
+    }
+    // Always apply teacher nav (runs on first load and token refresh)
+    if(isTeacher){
+      const tabs=document.querySelector('.nav-tabs');
+      if(tabs&&!tabs.dataset.teacherNav){
+        tabs.dataset.teacherNav='1';
+        tabs.innerHTML='<button class="nav-tab active" onclick="showScreen(\'home\')">Learn</button>'+'<button class="nav-tab" onclick="showScreen(\'dashboard\')">Dashboard</button>';
+      }
     }
     // Token refresh — just silently update currentUser, don't disrupt the UI
   } else {
@@ -1123,13 +1126,19 @@ async function renderDashboard(){
   }
   // Load all students
   document.getElementById('student-list').innerHTML='<div class="loading-spinner">Loading students&#x2026;</div>';
-  const{data:profiles}=await db.from('profiles').select('*').eq('role','student').order('name');
+  const{data:profiles,error:profilesError}=await db.from('profiles').select('*').neq('id',currentUser.id).order('name');
+  console.log('[Dashboard] profiles query →',profiles,profilesError);
+  if(profilesError){
+    document.getElementById('student-list').innerHTML='<div class="insight"><p>⚠️ Could not load students. Check Supabase RLS policies allow the teacher to read all profiles.</p><p style="font-size:11px;color:var(--muted);margin-top:6px">Error: '+profilesError.message+'</p></div>';
+    return;
+  }
   if(!profiles||!profiles.length){
     document.getElementById('student-list').innerHTML='<div class="insight"><p>No students have signed up yet. Share the app link with your tutees!</p></div>';
     return;
   }
   // Get app states for all students
-  const{data:states}=await db.from('app_state').select('*').in('user_id',profiles.map(p=>p.id));
+  const{data:states,error:statesError}=await db.from('app_state').select('*').in('user_id',profiles.map(p=>p.id));
+  console.log('[Dashboard] app_state query →',states,statesError);
   const stateMap={};
   if(states)states.forEach(s=>stateMap[s.user_id]=s);
   document.getElementById('student-list').innerHTML='';
@@ -1226,10 +1235,7 @@ async function teacherToggle(userId,subject,code,unlock,currentUnlocks){
 db.auth.onAuthStateChange((event,session)=>{
   onAuthStateChange(session?session.user:null);
 });
-// Check current session
-db.auth.getSession().then(({data:{session}})=>{
-  if(session)onAuthStateChange(session.user);
-});
+// Note: onAuthStateChange fires INITIAL_SESSION on load, so no need for getSession()
 </script>
 </body>
 </html>
