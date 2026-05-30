@@ -583,6 +583,10 @@ async function loadFromSupabase(){
     if(state.daily_new) APP.dailyNew=state.daily_new;
     if(state.daily_total) APP.dailyTotal=state.daily_total;
   }
+  if(!state){
+    // Truly new user — clear any stale localStorage from previous test sessions
+    try{localStorage.removeItem('ss_done_'+userId);}catch(e){}
+  }
   // Load card progress
   const{data:progress}=await db.from('card_progress').select('*').eq('user_id',userId);
   if(currentUser.id!==userId)return; // user changed while loading — bail out
@@ -594,8 +598,7 @@ async function loadFromSupabase(){
       };
     });
   }
-  // Only save defaults if genuinely first login, or always save updated streak
-  saveAppState(); // non-blocking — persists streak and any defaults
+  // Don't save here — new users get a row created only when they complete their first session
 }
 
 async function saveAppState(){
@@ -1107,7 +1110,6 @@ function rateCard(grade){
     saveCardState(card.id,newState,card);
     if(card._isNew)incrementDailyNew(card.subject);
     incrementDailyTotal(card.subject);
-    saveAppState();
     saveDailyActivity(card.subject);
     document.getElementById('nav-streak').textContent=APP.streak;
   }catch(e){console.error('rateCard save error:',e);}
