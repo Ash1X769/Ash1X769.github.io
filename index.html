@@ -528,9 +528,24 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 
 <div class="screen" id="screen-dashboard">
   <div class="dash-hdr" id="dash-hdr"><h2>&#x1F4CA; Teacher Dashboard</h2><p>Real student progress &#x2014; updated live</p></div>
-  <div class="teacher-section">
-    <h3>&#x1F393; Students</h3>
-    <div id="student-list"><div class="loading-spinner">Loading students&#x2026;</div></div>
+  <!-- Dashboard tabs -->
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+    <button class="parent-tab active" id="dtab-students" onclick="switchDashTab('students')">🎓 Students</button>
+    <button class="parent-tab" id="dtab-parents" onclick="switchDashTab('parents')">👨‍👩‍👧 Parents</button>
+  </div>
+  <!-- Students tab -->
+  <div id="dash-tab-students">
+    <div class="teacher-section">
+      <h3>&#x1F393; Students</h3>
+      <div id="student-list"><div class="loading-spinner">Loading students&#x2026;</div></div>
+    </div>
+  </div>
+  <!-- Parents tab -->
+  <div id="dash-tab-parents" style="display:none">
+    <div class="teacher-section">
+      <h3>👨‍👩‍👧 Linked Parent Accounts</h3>
+      <div id="parent-list"><div class="loading-spinner">Loading&#x2026;</div></div>
+    </div>
   </div>
   <div id="student-detail" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -1724,6 +1739,43 @@ function inferGrade(p){
 let selectedStudentId=null;
 let selectedStudentState=null;
 
+function switchDashTab(tab){
+  document.getElementById('dash-tab-students').style.display=tab==='students'?'block':'none';
+  document.getElementById('dash-tab-parents').style.display=tab==='parents'?'block':'none';
+  document.getElementById('dtab-students').classList.toggle('active',tab==='students');
+  document.getElementById('dtab-parents').classList.toggle('active',tab==='parents');
+  if(tab==='parents')renderParentList();
+}
+
+async function renderParentList(){
+  const list=document.getElementById('parent-list');
+  list.innerHTML='<div class="loading-spinner">Loading…</div>';
+  const{data:parents}=await db.from('parent_profiles').select('*').order('created_at',{ascending:false});
+  if(!parents||!parents.length){
+    list.innerHTML='<div class="insight"><p>No parent accounts linked yet. Students can share their parent code from their Profile page, or you can copy an invite message from each student\'s detail panel.</p></div>';
+    return;
+  }
+  // Get student names
+  const studentIds=[...new Set(parents.map(p=>p.student_id))];
+  const{data:students}=await db.from('profiles').select('id,name,year_group').in('id',studentIds);
+  const studentMap={};
+  if(students)students.forEach(s=>studentMap[s.id]=s);
+  list.innerHTML=parents.map(p=>{
+    const student=studentMap[p.student_id];
+    const studentName=student?student.name||'Unknown':'Unknown student';
+    const yearGroup=student?'Year '+(student.year_group||'?'):'';
+    const joinDate=p.created_at?new Date(p.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+    return '<div style="background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06);display:flex;align-items:center;gap:12px">'+
+      '<span style="font-size:24px">👨‍👩‍👧</span>'+
+      '<div style="flex:1">'+
+        '<div style="font-weight:900;font-size:14px;color:#0F172A">'+(p.parent_name||p.parent_email||'Parent')+'</div>'+
+        '<div style="font-size:12px;font-weight:600;color:#64748B">Linked to <strong>'+studentName+'</strong> · '+yearGroup+'</div>'+
+        '<div style="font-size:11px;font-weight:600;color:#94A3B8;margin-top:2px">Joined '+joinDate+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
 async function renderDashboard(){
   if(!isTeacher){
     // Students see their own stats
@@ -1765,12 +1817,16 @@ async function renderDashboard(){
   console.log('[Dashboard] app_state query →',states,statesError);
   const stateMap={};
   if(states)states.forEach(s=>stateMap[s.user_id]=s);
+  // Fetch which students have parent accounts linked
+  const{data:parentLinks}=await db.from('parent_profiles').select('student_id');
+  const linkedStudentIds=new Set((parentLinks||[]).map(p=>p.student_id));
   document.getElementById('student-list').innerHTML='';
   profiles.forEach(profile=>{
     const state=stateMap[profile.id]||{};
+    const hasParent=linkedStudentIds.has(profile.id);
     const card=document.createElement('div');
     card.className='student-card'+(selectedStudentId===profile.id?' selected':'');
-    card.innerHTML='<div class="student-name">'+(profile.name||profile.email)+'</div>'
+    card.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between"><div class="student-name">'+(profile.name||profile.email)+'</div>'+(hasParent?'<span title="Parent linked" style="font-size:16px">👨‍👩‍👧</span>':'')+'</div>'
       +'<div class="student-meta">Year '+(profile.year_group||'?')+' · '+(profile.tier==='H'?'Higher':'Foundation')+' · &#x1F525; '+(state.streak||0)+' day streak · &#x26A1; '+(state.xp||0)+' XP · &#x1F4DA; '+(state.total_cards||0)+' cards</div>';
     card.onclick=()=>selectStudent(profile,state,card);
     document.getElementById('student-list').appendChild(card);
