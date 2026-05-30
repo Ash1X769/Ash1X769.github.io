@@ -312,6 +312,19 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
           <option value="11">Year 11</option>
         </select>
       </div>
+      <div class="form-group">
+        <label class="form-label">Exam Tier</label>
+        <div style="display:flex;gap:10px;margin-top:4px">
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--border);border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;transition:.2s" id="tier-f-label">
+            <input type="radio" name="signup-tier" id="tier-foundation" value="F" checked style="accent-color:var(--indigo);width:18px;height:18px">
+            <div><div style="font-weight:900">Foundation</div><div style="font-size:11px;color:var(--muted);font-weight:600">Core content only</div></div>
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--border);border-radius:12px;cursor:pointer;font-weight:700;font-size:14px;transition:.2s" id="tier-h-label">
+            <input type="radio" name="signup-tier" id="tier-higher" value="H" style="accent-color:var(--indigo);width:18px;height:18px">
+            <div><div style="font-weight:900">Higher</div><div style="font-size:11px;color:var(--muted);font-weight:600">Foundation + extra</div></div>
+          </label>
+        </div>
+      </div>
       <button class="auth-btn" onclick="signUp()">Create Account &#x2192;</button>
     </div>
   </div>
@@ -544,6 +557,10 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
         <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">Year Group</div>
         <div style="font-size:15px;font-weight:800" id="profile-year">—</div>
       </div>
+      <div style="margin-top:10px">
+        <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">EXAM TIER</div>
+        <div style="font-size:15px;font-weight:800" id="profile-tier">—</div>
+      </div>
     </div>
 
     <div class="teacher-section" style="margin-bottom:14px">
@@ -598,6 +615,7 @@ let supabaseLoaded=false;
 // ── IN-MEMORY STATE (synced to Supabase) ──
 let APP={
   streak:0,lastStudy:null,xp:0,totalCards:0,totalCorrect:0,
+  tier:'F',
   unlocks:{
     biology:{b1:true,b2:false,b3:false,b4:false,b5:false,b6:false,b7:false},
     chemistry:{c1:false,c2:false,c3:false,c4:false,c5:false,c6:false,c7:false,c8:false,c9:false,c10:false},
@@ -735,10 +753,11 @@ async function signUp(){
   const email=document.getElementById('signup-email').value.trim();
   const password=document.getElementById('signup-password').value;
   const year=parseInt(document.getElementById('signup-year').value);
+  const tier=document.querySelector('input[name="signup-tier"]:checked')?.value||'F';
   if(!name||!email||!password){showAuthError('Please fill in all fields.');return;}
   if(password.length<6){showAuthError('Password must be at least 6 characters.');return;}
   const btn=event.target;btn.disabled=true;btn.textContent='Creating account…';
-  const{error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year}}});
+  const{error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year,tier}}});
   btn.disabled=false;btn.innerHTML='Create Account &#x2192;';
   if(error){showAuthError(error.message);return;}
   // Update profile with name and year
@@ -780,8 +799,9 @@ async function onAuthStateChange(user){
     const{data:profile}=await db.from('profiles').select('*').eq('id',user.id).single();
     if(profile){
       userProfile=profile;
+      APP.tier=profile.tier||'F';
       if(!profile.name&&user.user_metadata&&user.user_metadata.name){
-        await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group}).eq('id',user.id);
+        await db.from('profiles').update({name:user.user_metadata.name,year_group:user.user_metadata.year_group,tier:user.user_metadata.tier||'F'}).eq('id',user.id);
       }
     }
     if(!supabaseLoaded){
@@ -889,7 +909,11 @@ function buildQueue(subject,bonusMode){
   const all=[];
   for(const code of TOPIC_ORDER[subject]){
     if(!isTopicUnlocked(subject,code))continue;
-    CARD_DATA[subject][code].cards.forEach(c=>all.push({...c,_code:code}));
+    CARD_DATA[subject][code].cards.forEach(c=>{
+      // Filter by tier: Foundation students only see F cards, Higher see all
+      if(APP.tier==='F'&&c.tier==='H')return;
+      all.push({...c,_code:code});
+    });
   }
   const reviews=all.filter(c=>isDue(c.id)).sort((a,b)=>getCardState(a.id).due-getCardState(b.id).due);
   const news=all.filter(c=>isNew(c.id));
@@ -1506,6 +1530,7 @@ function showProfileScreen(){
   document.getElementById('profile-name').textContent=name;
   document.getElementById('profile-email').textContent=currentUser?currentUser.email:'—';
   document.getElementById('profile-year').textContent=userProfile&&userProfile.year_group?'Year '+userProfile.year_group:'—';
+  document.getElementById('profile-tier').textContent=APP.tier==='H'?'Higher (Foundation + Higher cards)':'Foundation (Foundation cards only)';
   document.getElementById('profile-new-name').value='';
   document.getElementById('profile-current-password').value='';
   document.getElementById('profile-new-password').value='';
