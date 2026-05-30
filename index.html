@@ -24,7 +24,7 @@
 body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
 /* NAV */
-.nav{background:var(--surface);border-bottom:2px solid var(--border);padding:0 12px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.04);gap:6px;overflow:hidden}
+.nav{background:var(--surface);border-bottom:2px solid var(--border);padding:0 10px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.04);gap:4px}
 .logo{font-size:19px;font-weight:900;display:flex;align-items:center;gap:7px}
 .logo-text{background:linear-gradient(135deg,#22C55E,#3B82F6,#A855F7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .nav-tabs{display:flex;gap:2px;background:#F1F5F9;border-radius:10px;padding:3px}
@@ -38,7 +38,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .profile-btn:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light)}
 .sign-out-btn{padding:4px 8px;border-radius:8px;border:2px solid var(--border);background:none;font-family:"Nunito",sans-serif;font-size:10px;font-weight:800;cursor:pointer;color:var(--muted);transition:.2s;white-space:nowrap}
 .sign-out-btn:hover{border-color:var(--hard);color:var(--hard)}
-@media(max-width:420px){.sign-out-btn{display:none}.logo-text{display:none}.profile-btn{width:30px;height:30px}}
+@media(max-width:520px){.sign-out-btn{display:none}.logo-text{display:none}.profile-btn{width:30px;height:30px}}
 
 /* SCREENS */
 .screen{display:none;padding:20px;max-width:860px;margin:0 auto}
@@ -314,7 +314,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 <div id="main-app" style="display:none">
 <nav class="nav">
   <div class="logo" style="flex-shrink:1;min-width:0;overflow:hidden">&#x1F52C;<span class="logo-text" style="white-space:nowrap">ScienceSpark</span></div>
-  <div class="nav-tabs" style="flex-shrink:0">
+  <div class="nav-tabs" style="flex-shrink:1;min-width:0">
     <button class="nav-tab active" onclick="showScreen('home')">Learn</button>
     <button class="nav-tab" onclick="showScreen('history')">History</button>
     <button class="nav-tab" onclick="showScreen('dashboard')">Dashboard</button>
