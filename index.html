@@ -24,7 +24,7 @@
 body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 
 /* NAV */
-.nav{background:var(--surface);border-bottom:2px solid var(--border);padding:0 10px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.04);gap:4px}
+.nav{background:var(--surface);border-bottom:2px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.04);gap:4px}
 .logo{font-size:19px;font-weight:900;display:flex;align-items:center;gap:7px}
 .logo-text{background:linear-gradient(135deg,#22C55E,#3B82F6,#A855F7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .nav-tabs{display:flex;gap:2px;background:#F1F5F9;border-radius:10px;padding:3px}
@@ -40,11 +40,12 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .profile-dropdown.open{display:block;animation:fadeUp .15s ease}
 .pd-item{display:flex;align-items:center;gap:10px;padding:13px 16px;font-family:"Nunito",sans-serif;font-size:14px;font-weight:800;cursor:pointer;color:var(--text);border:none;background:none;width:100%;text-align:left;transition:.15s}
 .pd-item:hover{background:#F8FAFC}
-.pd-item.danger{color:var(--hard)}
-.pd-item.danger:hover{background:#FEF2F2}
+.pd-item.danger{color:var(--text)}
+.pd-item.danger:hover{background:#F8FAFC}
 .pd-sep{height:1px;background:var(--border);margin:0}
 .sign-out-btn{padding:4px 8px;border-radius:8px;border:2px solid var(--border);background:none;font-family:"Nunito",sans-serif;font-size:10px;font-weight:800;cursor:pointer;color:var(--muted);transition:.2s;white-space:nowrap}
 .sign-out-btn:hover{border-color:var(--hard);color:var(--hard)}
+@media(min-width:521px){.nav{padding:0 20px}}
 @media(max-width:520px){.sign-out-btn{display:none}.logo-text{display:none}.profile-btn{width:30px;height:30px}}
 
 /* SCREENS */
@@ -326,7 +327,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
     <button class="nav-tab" onclick="showScreen('history')">History</button>
     <button class="nav-tab" onclick="showScreen('dashboard')">Dashboard</button>
   </div>
-  <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
     <div class="streak-pill"><span class="fire">&#x1F525;</span><span id="nav-streak">0</span></div>
     <div style="position:relative;flex-shrink:0">
       <button class="profile-btn" onclick="toggleProfileDropdown(event)" aria-label="My Profile">
