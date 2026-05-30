@@ -969,13 +969,13 @@ async function onAuthStateChange(user){
     isTeacher=(user.email===TEACHER_EMAIL);
 
     // Check if this is a parent account
-    const{data:parentRow}=await db.from('parent_profiles').select('*').eq('user_id',user.id).single();
-    if(parentRow){
+    const{data:parentRows}=await db.from('parent_profiles').select('*').eq('user_id',user.id);
+    if(parentRows&&parentRows.length>0){
       isParent=true;
-      parentStudentId=parentRow.student_id;
+      parentStudentId=parentRows[0].student_id;
       document.getElementById('auth-screen').style.display='none';
       document.getElementById('main-app').style.display='none';
-      await loadParentPortal(parentRow);
+      await loadParentPortal(parentRows);
       return;
     }
     isParent=false;
@@ -1036,8 +1036,10 @@ async function parentSignUp(){
   }
 }
 
-async function loadParentPortal(parentRow){
+async function loadParentPortal(parentRows){
   document.getElementById('parent-portal').style.display='block';
+  // Store all linked student IDs globally
+  window._parentRows=parentRows;
   // Check if first login (onboarding)
   const onboardKey='parent_onboarded_'+currentUser.id;
   if(!localStorage.getItem(onboardKey)){
@@ -1046,7 +1048,8 @@ async function loadParentPortal(parentRow){
   } else {
     document.getElementById('parent-onboarding').style.display='none';
     document.getElementById('parent-dashboard-content').style.display='block';
-    await loadParentData(parentRow.student_id);
+    await renderChildSwitcher(parentRows);
+    await loadParentData(parentRows[0].student_id);
   }
 }
 
@@ -1055,10 +1058,88 @@ function dismissParentOnboarding(){
   localStorage.setItem(onboardKey,'1');
   document.getElementById('parent-onboarding').style.display='none';
   document.getElementById('parent-dashboard-content').style.display='block';
-  loadParentData(parentStudentId);
+  const rows=window._parentRows||[];
+  renderChildSwitcher(rows).then(()=>loadParentData(rows[0]?rows[0].student_id:parentStudentId));
+}
+
+async function renderChildSwitcher(rows){
+  // Fetch names for all linked students
+  const ids=rows.map(r=>r.student_id);
+  const{data:students}=await db.from('profiles').select('id,name,year_group').in('id',ids);
+  const nameMap={};
+  if(students)students.forEach(s=>nameMap[s.id]=s);
+  const banner=document.getElementById('parent-student-name').parentElement.parentElement;
+  // Inject child switcher above the banner if multiple children
+  const switcherId='parent-child-switcher';
+  let switcher=document.getElementById(switcherId);
+  if(!switcher){
+    switcher=document.createElement('div');
+    switcher.id=switcherId;
+    banner.parentElement.insertBefore(switcher,banner);
+  }
+  if(rows.length<=1){
+    switcher.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;justify-content:flex-end';
+    switcher.innerHTML='<button onclick="showAddChildForm()" style="padding:7px 12px;border-radius:10px;border:2px dashed #C7D2FE;background:#EEF2FF;font-family:\'Nunito\',sans-serif;font-size:12px;font-weight:800;cursor:pointer;color:#6366F1">+ Add another child</button>';
+    return;
+  }
+  switcher.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px';
+  switcher.innerHTML=rows.map(r=>{
+    const s=nameMap[r.student_id];
+    const label=s?s.name||'Child':'Child';
+    return '<button onclick="loadParentData(\''+r.student_id+'\')" style="padding:8px 14px;border-radius:10px;border:2px solid #E2E8F0;background:#fff;font-family:\'Nunito\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;color:#475569;transition:.2s" class="child-switch-btn" data-id="'+r.student_id+'">'+label+'</button>';
+  }).join('')+'<button onclick="showAddChildForm()" style="padding:8px 14px;border-radius:10px;border:2px dashed #C7D2FE;background:#EEF2FF;font-family:\'Nunito\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;color:#6366F1">+ Add child</button>';
+}
+
+function showAddChildForm(){
+  const existing=document.getElementById('add-child-modal');
+  if(existing)existing.remove();
+  const modal=document.createElement('div');
+  modal.id='add-child-modal';
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML='<div style="background:#fff;border-radius:20px;padding:28px;max-width:360px;width:100%">'+
+    '<div style="font-size:20px;font-weight:900;margin-bottom:6px">👨‍👩‍👧 Add Another Child</div>'+
+    '<div style="font-size:13px;font-weight:600;color:#64748B;margin-bottom:16px">Ask your child for their parent code from their Profile page</div>'+
+    '<input id="add-child-code" class="form-input" type="text" placeholder="e.g. XK7P2" style="text-transform:uppercase;letter-spacing:2px;font-weight:800;font-size:16px;margin-bottom:12px">'+
+    '<div id="add-child-msg" style="font-size:12px;font-weight:700;margin-bottom:12px;display:none"></div>'+
+    '<div style="display:flex;gap:10px">'+
+    '<button onclick="document.getElementById(\'add-child-modal\').remove()" style="flex:1;padding:12px;border-radius:12px;border:2px solid #E2E8F0;background:#F8FAFC;font-family:\'Nunito\',sans-serif;font-weight:800;font-size:14px;cursor:pointer;color:#64748B">Cancel</button>'+
+    '<button onclick="linkAnotherChild()" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#6366F1,#8B5CF6);font-family:\'Nunito\',sans-serif;font-weight:900;font-size:14px;cursor:pointer;color:#fff">Link Child</button>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  setTimeout(()=>document.getElementById('add-child-code')?.focus(),100);
+}
+
+async function linkAnotherChild(){
+  const code=document.getElementById('add-child-code').value.trim().toUpperCase();
+  const msg=document.getElementById('add-child-msg');
+  if(!code||code.length<5){msg.textContent='Please enter a valid 5-character code.';msg.style.color='#EF4444';msg.style.display='block';return;}
+  const{data:student}=await db.from('profiles').select('id,name').eq('parent_code',code).single();
+  if(!student){msg.textContent='Code not found. Ask your child to check their Profile page.';msg.style.color='#EF4444';msg.style.display='block';return;}
+  // Check not already linked
+  const rows=window._parentRows||[];
+  if(rows.find(r=>r.student_id===student.id)){msg.textContent='This child is already linked to your account.';msg.style.color='#F59E0B';msg.style.display='block';return;}
+  const{error}=await db.from('parent_profiles').insert({user_id:currentUser.id,student_id:student.id,parent_name:rows[0]?.parent_name,parent_email:currentUser.email});
+  if(error){msg.textContent='Something went wrong. Please try again.';msg.style.color='#EF4444';msg.style.display='block';return;}
+  // Reload parent rows
+  const{data:newRows}=await db.from('parent_profiles').select('*').eq('user_id',currentUser.id);
+  window._parentRows=newRows;
+  document.getElementById('add-child-modal').remove();
+  await renderChildSwitcher(newRows);
+  // Switch to newly added child
+  parentStudentId=student.id;
+  await loadParentData(student.id);
 }
 
 async function loadParentData(studentId){
+  parentStudentId=studentId;
+  // Highlight active child button
+  document.querySelectorAll('.child-switch-btn').forEach(b=>{
+    const isActive=b.dataset.id===studentId;
+    b.style.background=isActive?'#6366F1':'#fff';
+    b.style.color=isActive?'#fff':'#475569';
+    b.style.borderColor=isActive?'#6366F1':'#E2E8F0';
+  });
   const[{data:studentProfile},{data:state},{data:progress},{data:activity}]=await Promise.all([
     db.from('profiles').select('*').eq('id',studentId).single(),
     db.from('app_state').select('*').eq('user_id',studentId).single(),
