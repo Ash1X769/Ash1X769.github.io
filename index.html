@@ -511,6 +511,14 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
         <button onclick="document.getElementById('student-detail').style.display='none'" style="background:none;border:none;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer">&#x2190; All students</button>
       </div>
     </div>
+    <div class="teacher-section" style="margin-bottom:12px">
+      <h3>&#x1F393; Exam Tier</h3>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button id="tier-btn-f" onclick="teacherSetTier('F')" style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--border);font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;background:#F8FAFC;color:#64748B;transition:.2s">Foundation</button>
+        <button id="tier-btn-h" onclick="teacherSetTier('H')" style="flex:1;padding:10px;border-radius:12px;border:2px solid var(--border);font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;background:#F8FAFC;color:#64748B;transition:.2s">Higher</button>
+      </div>
+      <div id="tier-msg" style="font-size:12px;font-weight:700;margin-top:8px;display:none"></div>
+    </div>
     <div class="teacher-section">
       <h3>&#x1F513; Topic Controls</h3>
       <div id="unlock-controls"></div>
@@ -1391,7 +1399,7 @@ async function renderDashboard(){
     const card=document.createElement('div');
     card.className='student-card'+(selectedStudentId===profile.id?' selected':'');
     card.innerHTML='<div class="student-name">'+(profile.name||profile.email)+'</div>'
-      +'<div class="student-meta">Year '+(profile.year_group||'?')+' · &#x1F525; '+(state.streak||0)+' day streak · &#x26A1; '+(state.xp||0)+' XP · &#x1F4DA; '+(state.total_cards||0)+' cards</div>';
+      +'<div class="student-meta">Year '+(profile.year_group||'?')+' · '+(profile.tier==='H'?'Higher':'Foundation')+' · &#x1F525; '+(state.streak||0)+' day streak · &#x26A1; '+(state.xp||0)+' XP · &#x1F4DA; '+(state.total_cards||0)+' cards</div>';
     card.onclick=()=>selectStudent(profile,state,card);
     document.getElementById('student-list').appendChild(card);
   });
@@ -1441,6 +1449,13 @@ async function selectStudent(profile,state,cardEl){
   document.getElementById('d-heatmap').innerHTML=heatCells.join('');
   // Topic controls
   renderUnlockControls(profile,state.unlocks||{});
+  // Tier buttons
+  const studentTier=profile.tier||'F';
+  const activeStyle='background:var(--indigo);color:#fff;border-color:var(--indigo)';
+  const inactiveStyle='background:#F8FAFC;color:#64748B;border-color:var(--border)';
+  document.getElementById('tier-btn-f').style.cssText='flex:1;padding:10px;border-radius:12px;border:2px solid;font-family:Nunito,sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:.2s;'+(studentTier==='F'?activeStyle:inactiveStyle);
+  document.getElementById('tier-btn-h').style.cssText='flex:1;padding:10px;border-radius:12px;border:2px solid;font-family:Nunito,sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:.2s;'+(studentTier==='H'?activeStyle:inactiveStyle);
+  document.getElementById('tier-msg').style.display='none';
   document.getElementById('student-list').querySelectorAll('.student-card').forEach(c=>c.classList.remove('selected'));
   if(cardEl)cardEl.classList.add('selected');
   // Clear password reset fields when switching students
@@ -1468,6 +1483,32 @@ function renderUnlockControls(profile,unlocks){
     });
     c.appendChild(wrap);
   });
+}
+
+async function teacherSetTier(tier){
+  if(!selectedStudentId)return;
+  const activeStyle='flex:1;padding:10px;border-radius:12px;border:2px solid var(--indigo);font-family:Nunito,sans-serif;font-size:13px;font-weight:800;cursor:pointer;background:var(--indigo);color:#fff;transition:.2s';
+  const inactiveStyle='flex:1;padding:10px;border-radius:12px;border:2px solid var(--border);font-family:Nunito,sans-serif;font-size:13px;font-weight:800;cursor:pointer;background:#F8FAFC;color:#64748B;transition:.2s';
+  document.getElementById('tier-btn-f').style.cssText=tier==='F'?activeStyle:inactiveStyle;
+  document.getElementById('tier-btn-h').style.cssText=tier==='H'?activeStyle:inactiveStyle;
+  const{error}=await db.from('profiles').update({tier}).eq('id',selectedStudentId);
+  const msg=document.getElementById('tier-msg');
+  if(error){
+    msg.textContent='❌ Failed to update tier';msg.style.color='#EF4444';
+  } else {
+    msg.textContent='✅ Tier updated to '+(tier==='H'?'Higher':'Foundation');msg.style.color='#22C55E';
+    // Update the student card in the list
+    document.getElementById('student-list').querySelectorAll('.student-card').forEach(c=>{
+      if(c.querySelector('.student-name')&&selectedStudentState){
+        const meta=c.querySelector('.student-meta');
+        if(meta&&c.classList.contains('selected')){
+          meta.textContent=meta.textContent.replace(/Foundation|Higher/,tier==='H'?'Higher':'Foundation');
+        }
+      }
+    });
+  }
+  msg.style.display='block';
+  setTimeout(()=>msg.style.display='none',3000);
 }
 
 async function teacherToggle(userId,subject,code,unlock){
