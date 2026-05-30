@@ -245,7 +245,7 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .insight p{font-size:12px;font-weight:700;color:#4338CA;line-height:1.5}
 .student-card{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:.2s}
 .student-card:hover{border-color:#C7D2FE}
-.student-card.selected{border-color:var(--indigo);background:var(--indigo-light)}
+.student-card.selected{border-color:var(--indigo);background:var(--indigo-light);box-shadow:0 0 0 3px rgba(99,102,241,0.2)}
 .student-name{font-size:15px;font-weight:900;margin-bottom:2px}
 .student-meta{font-size:12px;color:var(--muted);font-weight:600}
 .loading-spinner{text-align:center;padding:40px;color:var(--muted);font-weight:700;font-size:14px}
@@ -1368,13 +1368,16 @@ async function renderDashboard(){
     card.className='student-card'+(selectedStudentId===profile.id?' selected':'');
     card.innerHTML='<div class="student-name">'+(profile.name||profile.email)+'</div>'
       +'<div class="student-meta">Year '+(profile.year_group||'?')+' · &#x1F525; '+(state.streak||0)+' day streak · &#x26A1; '+(state.xp||0)+' XP · &#x1F4DA; '+(state.total_cards||0)+' cards</div>';
-    card.onclick=()=>selectStudent(profile,state);
+    card.onclick=()=>selectStudent(profile,state,card);
     document.getElementById('student-list').appendChild(card);
   });
 }
 
-async function selectStudent(profile,state){
+async function selectStudent(profile,state,cardEl){
   selectedStudentId=profile.id;
+  // Always re-fetch fresh state from Supabase so unlocks are current
+  const{data:freshState}=await db.from('app_state').select('*').eq('user_id',profile.id).single();
+  state=freshState||state;
   selectedStudentState=state;
   document.getElementById('student-detail').style.display='block';
   document.getElementById('dash-student-name').textContent=(profile.name||profile.email)+' — Year '+(profile.year_group||'?');
@@ -1415,7 +1418,7 @@ async function selectStudent(profile,state){
   // Topic controls
   renderUnlockControls(profile,state.unlocks||{});
   document.getElementById('student-list').querySelectorAll('.student-card').forEach(c=>c.classList.remove('selected'));
-  event.currentTarget&&event.currentTarget.classList&&event.currentTarget.classList.add('selected');
+  if(cardEl)cardEl.classList.add('selected');
   // Clear password reset fields when switching students
   document.getElementById('teacher-new-password').value='';
   document.getElementById('teacher-reset-msg').style.display='none';
@@ -1447,7 +1450,11 @@ async function teacherToggle(userId,subject,code,unlock,currentUnlocks){
   const newUnlocks={...currentUnlocks};
   if(!newUnlocks[subject])newUnlocks[subject]={};
   newUnlocks[subject][code]=unlock;
-  await db.from('app_state').update({unlocks:newUnlocks}).eq('user_id',userId);
+  const{error}=await db.from('app_state').update({unlocks:newUnlocks}).eq('user_id',userId);
+  if(error){
+    alert('❌ Failed to save unlock: '+error.message);
+    return;
+  }
   selectedStudentState.unlocks=newUnlocks;
   renderUnlockControls({id:userId},newUnlocks);
   // If it's the current user, update their app too
