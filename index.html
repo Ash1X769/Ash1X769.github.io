@@ -60,9 +60,9 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
 .auth-tabs{display:flex;background:#F1F5F9;border-radius:10px;padding:3px;margin-bottom:20px}
 .auth-tab{flex:1;padding:8px;border-radius:8px;border:none;background:transparent;font-family:"Nunito",sans-serif;font-weight:700;font-size:12px;cursor:pointer;color:var(--muted);transition:.2s;white-space:nowrap}
 .auth-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-.account-type-btn{flex:1;padding:10px 6px;border-radius:10px;border:2px solid var(--border);background:#fff;font-family:"Nunito",sans-serif;font-weight:800;font-size:12px;cursor:pointer;color:#64748B;transition:.15s;white-space:nowrap}
-.account-type-btn.active{background:#6366F1;color:#fff;border-color:#6366F1}
-.pp-tab{flex:1;padding:9px 6px;border-radius:10px;border:2px solid #E2E8F0;background:#fff;font-family:"Nunito",sans-serif;font-weight:800;font-size:12px;cursor:pointer;color:#64748B;transition:.15s;white-space:nowrap}
+.role-btn{flex:1;padding:10px 4px;border-radius:10px;border:2px solid var(--border);background:#fff;font-family:"Nunito",sans-serif;font-weight:800;font-size:12px;cursor:pointer;color:#64748B;transition:.15s;white-space:nowrap}
+.role-btn.active{background:#6366F1;color:#fff;border-color:#6366F1}
+.pp-tab{flex:1;padding:9px 6px;border-radius:10px;border:2px solid #E2E8F0;background:#fff;font-family:"Nunito",sans-serif;font-weight:800;font-size:12px;cursor:pointer;color:#64748B;transition:.15s}
 .pp-tab.active{background:#6366F1;color:#fff;border-color:#6366F1}
 .form-group{margin-bottom:14px}
 .form-label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
@@ -280,7 +280,6 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
     </div>
     <div class="auth-error" id="auth-error"></div>
     <div class="auth-success" id="auth-success"></div>
-
     <!-- Login form -->
     <div id="login-form">
       <div class="form-group">
@@ -293,23 +292,21 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
       </div>
       <button class="auth-btn" onclick="signIn()">Sign In &#x2192;</button>
     </div>
-
-    <!-- Unified signup form -->
+    <!-- Signup form -->
     <div id="signup-form" style="display:none">
-      <!-- Account type selector -->
+      <!-- Role selector -->
       <div class="form-group">
         <label class="form-label">I am a...</label>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button type="button" class="account-type-btn active" id="atype-student" onclick="selectAccountType('student')">🎓 Student</button>
-          <button type="button" class="account-type-btn" id="atype-teacher" onclick="selectAccountType('teacher')">👩‍🏫 Teacher</button>
-          <button type="button" class="account-type-btn" id="atype-parent" onclick="selectAccountType('parent')">👨‍👩‍👧 Parent</button>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button type="button" class="role-btn active" id="role-student" onclick="setSignupRole('student')">🎓 Student</button>
+          <button type="button" class="role-btn" id="role-teacher" onclick="setSignupRole('teacher')">👩‍🏫 Teacher</button>
+          <button type="button" class="role-btn" id="role-parent" onclick="setSignupRole('parent')">👨‍👩‍👧 Parent</button>
         </div>
       </div>
-
       <!-- Common fields -->
       <div class="form-group">
         <label class="form-label">Your Name</label>
-        <input class="form-input" id="signup-name" type="text" placeholder="First name">
+        <input class="form-input" id="signup-name" type="text" placeholder="Your name">
       </div>
       <div class="form-group">
         <label class="form-label">Email</label>
@@ -319,9 +316,8 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
         <label class="form-label">Password</label>
         <input class="form-input" id="signup-password" type="password" placeholder="Min 6 characters">
       </div>
-
       <!-- Student-only fields -->
-      <div id="student-fields">
+      <div id="student-extra">
         <div class="form-group">
           <label class="form-label">Year Group</label>
           <select class="form-select" id="signup-year">
@@ -346,29 +342,24 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Class Code <span style="font-size:11px;color:var(--muted);font-weight:600">(optional — ask your teacher)</span></label>
+          <label class="form-label">Class Code <span style="font-size:11px;font-weight:600;color:var(--muted)">(optional — from your teacher)</span></label>
           <input class="form-input" id="signup-class-code" type="text" placeholder="e.g. BIO-7X2" style="text-transform:uppercase;letter-spacing:2px;font-weight:800">
         </div>
       </div>
-
       <!-- Teacher-only fields -->
-      <div id="teacher-fields" style="display:none">
-        <div style="background:linear-gradient(135deg,#EEF2FF,#F0FDF4);border-radius:12px;padding:12px;margin-bottom:4px">
-          <div style="font-size:13px;font-weight:700;color:#6366F1">👩‍🏫 Teacher Account</div>
-          <div style="font-size:12px;font-weight:600;color:#64748B;margin-top:2px">You'll get a class code to share with your students after signing up</div>
+      <div id="teacher-extra" style="display:none">
+        <div style="background:#EEF2FF;border-radius:12px;padding:12px;margin-bottom:4px;font-size:13px;font-weight:600;color:#6366F1">
+          👩‍🏫 You'll get a class code to share with students after signing up
         </div>
       </div>
-
       <!-- Parent-only fields -->
-      <div id="parent-fields" style="display:none">
+      <div id="parent-extra" style="display:none">
         <div class="form-group">
           <label class="form-label">Child's Parent Code</label>
-          <input class="form-input" id="signup-parent-code" type="text" placeholder="e.g. XK7P2" style="text-transform:uppercase;letter-spacing:3px;font-weight:900;font-size:18px;text-align:center">
-          <div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:4px">Ask your child — they'll find this on their Profile page</div>
+          <input class="form-input" id="signup-parent-code" type="text" placeholder="Ask your child — on their Profile page" style="text-transform:uppercase;letter-spacing:2px;font-weight:800">
         </div>
       </div>
-
-      <button class="auth-btn" onclick="signUp()">Create Account &#x2192;</button>
+      <button class="auth-btn" onclick="signUp(this)">Create Account &#x2192;</button>
     </div>
   </div>
 </div>
@@ -631,29 +622,27 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
     </div>
 
     <button onclick="showScreen('home')" style="width:100%;padding:12px;border-radius:var(--radius);border:2px solid var(--border);background:var(--surface);font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;color:var(--muted)">&#x2190; Back to Home</button>
-
-    <!-- Parent code — students only, injected by showProfileScreen -->
+    <!-- Parent code — students only -->
     <div id="parent-code-section" style="display:none;margin-top:14px">
       <div class="teacher-section" style="background:linear-gradient(135deg,#EEF2FF,#F0FDF4)">
         <h3 style="font-size:13px;font-weight:900;margin-bottom:6px">👨‍👩‍👧 Share with Your Parent</h3>
-        <p style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:12px">Give this code to your parent — they enter it when creating a Parent account</p>
-        <div style="background:#fff;border-radius:12px;padding:14px;text-align:center;border:2px dashed #C7D2FE;margin-bottom:10px">
-          <div style="font-size:11px;font-weight:800;color:#6366F1;letter-spacing:.5px;margin-bottom:6px">YOUR PARENT CODE</div>
-          <div style="font-size:30px;font-weight:900;color:#0F172A;letter-spacing:5px" id="parent-code-display">—</div>
+        <p style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:10px">Give this code to your parent — they enter it when creating a Parent account</p>
+        <div style="background:#fff;border-radius:12px;padding:12px;text-align:center;border:2px dashed #C7D2FE;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:800;color:#6366F1;letter-spacing:.5px;margin-bottom:4px">YOUR PARENT CODE</div>
+          <div style="font-size:28px;font-weight:900;color:#0F172A;letter-spacing:5px" id="parent-code-display">—</div>
         </div>
         <button class="start-today" id="copy-parent-btn" onclick="copyParentCode()" style="width:100%;font-size:13px">📋 Copy Message for Parent</button>
       </div>
     </div>
-
-    <!-- Teacher class code — teachers only -->
-    <div id="teacher-class-section" style="display:none;margin-top:14px">
+    <!-- Teacher class code -->
+    <div id="teacher-code-section" style="display:none;margin-top:14px">
       <div class="teacher-section" style="background:linear-gradient(135deg,#EEF2FF,#F0FDF4)">
         <h3 style="font-size:13px;font-weight:900;margin-bottom:6px">🏫 Your Class Code</h3>
-        <p style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:12px">Share this with your students so they can join your class</p>
-        <div style="background:#fff;border-radius:12px;padding:14px;text-align:center;border:2px dashed #C7D2FE;margin-bottom:10px">
-          <div style="font-size:30px;font-weight:900;color:#0F172A;letter-spacing:5px" id="teacher-class-code-display">—</div>
+        <p style="font-size:12px;font-weight:600;color:#64748B;margin-bottom:10px">Share this with your students so they can join your class</p>
+        <div style="background:#fff;border-radius:12px;padding:12px;text-align:center;border:2px dashed #C7D2FE;margin-bottom:10px">
+          <div style="font-size:28px;font-weight:900;color:#0F172A;letter-spacing:4px" id="teacher-class-code-display">—</div>
         </div>
-        <button class="start-today" onclick="copyClassCode()" style="width:100%;font-size:13px">📋 Copy Class Code</button>
+        <button class="start-today" onclick="copyClassCode()" style="width:100%;font-size:13px">📋 Copy Invite Message</button>
       </div>
     </div>
   </div>
@@ -670,12 +659,12 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
           <div style="font-size:11px;font-weight:700;color:#6366F1">Parent Portal</div>
         </div>
       </div>
-      <button onclick="parentSignOut()" style="padding:7px 14px;border-radius:10px;border:2px solid #E2E8F0;background:#fff;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;color:#64748B">Sign Out</button>
+      <button onclick="ppSignOut()" style="padding:7px 14px;border-radius:10px;border:2px solid #E2E8F0;background:#fff;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;cursor:pointer;color:#64748B">Sign Out</button>
     </div>
     <div style="background:linear-gradient(135deg,#6366F1,#8B5CF6);border-radius:16px;padding:16px 20px;margin-bottom:16px;color:#fff">
       <div style="font-size:11px;font-weight:700;opacity:.8;margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px">Viewing progress for</div>
-      <div style="font-size:21px;font-weight:900" id="pp-student-name">—</div>
-      <div style="font-size:12px;font-weight:600;opacity:.8;margin-top:2px" id="pp-student-meta">—</div>
+      <div style="font-size:21px;font-weight:900" id="pp-name">—</div>
+      <div style="font-size:12px;font-weight:600;opacity:.8;margin-top:2px" id="pp-meta">—</div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:16px">
       <button class="pp-tab active" id="pptab-progress" onclick="switchPPTab('progress')">📊 Progress</button>
@@ -683,19 +672,19 @@ body{font-family:"Nunito",sans-serif;background:var(--bg);color:var(--text);min-
       <button class="pp-tab" id="pptab-tips" onclick="switchPPTab('tips')">💡 Tips</button>
     </div>
     <div id="pp-tab-progress">
-      <div class="dash-grid" id="pp-stats-grid" style="margin-bottom:16px"></div>
+      <div class="dash-grid" id="pp-stats" style="margin-bottom:16px"></div>
       <div id="pp-topics"></div>
       <div id="pp-insights" style="margin-top:12px"></div>
     </div>
     <div id="pp-tab-history" style="display:none">
-      <div id="pp-history-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div id="pp-history" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
     <div id="pp-tab-tips" style="display:none">
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="teacher-section"><h3>🧠 Why Spaced Repetition Works</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">ScienceSpark schedules each card at the optimal moment before forgetting. Research shows this improves long-term retention by up to 200% compared to re-reading notes.</p></div>
-        <div class="teacher-section"><h3>🔥 Daily Habit Beats Marathon Sessions</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">10 minutes every day beats 2 hours once a week. Encourage your child to keep their streak going — the habit is the skill.</p></div>
-        <div class="teacher-section"><h3>💬 The Best Thing You Can Do</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">Ask them to explain a topic to you. "Teach it back" is one of the most powerful revision strategies. You don't need to know the science — just listen and ask questions.</p></div>
-        <div class="teacher-section"><h3>⚠️ The Highlighting Trap</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">Re-reading and highlighting feels productive but leads to poor results. Active recall — being tested — is far more effective. ScienceSpark does this automatically.</p></div>
+        <div class="teacher-section"><h3>🧠 Why Spaced Repetition Works</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">ScienceSpark schedules each card at the optimal moment before forgetting. Research shows this improves long-term retention by up to 200% vs re-reading notes.</p></div>
+        <div class="teacher-section"><h3>🔥 Daily Beats Marathon</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">10 minutes every day beats 2 hours once a week. Encourage your child to keep their streak — the habit is the skill.</p></div>
+        <div class="teacher-section"><h3>💬 Best Thing You Can Do</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">Ask them to explain a topic to you. "Teach it back" is one of the most powerful revision strategies. You don't need to know the science — just listen.</p></div>
+        <div class="teacher-section"><h3>⚠️ The Highlighting Trap</h3><p style="font-size:13px;font-weight:600;color:#475569;line-height:1.6">Re-reading and highlighting feels productive but leads to poor results. Active recall like ScienceSpark is far more effective.</p></div>
       </div>
     </div>
   </div>
@@ -730,7 +719,7 @@ let userProfile=null;
 let isTeacher=false;
 let isParent=false;
 let supabaseLoaded=false;
-let currentAccountType='student'; // tracks selected type on signup form
+let _signupRole='student';
 
 // ── IN-MEMORY STATE (synced to Supabase) ──
 let APP={
@@ -868,63 +857,65 @@ async function signIn(){
   if(error){showAuthError(error.message);return;}
 }
 
-function selectAccountType(type){
-  currentAccountType=type;
-  ['student','teacher','parent'].forEach(t=>{
-    document.getElementById('atype-'+t).classList.toggle('active',t===type);
-    document.getElementById(t+'-fields').style.display=t===type?'block':'none';
+function setSignupRole(role){
+  _signupRole=role;
+  ['student','teacher','parent'].forEach(r=>{
+    document.getElementById('role-'+r).classList.toggle('active',r===role);
+    document.getElementById(r+'-extra').style.display=r===role?'block':'none';
   });
 }
 
-async function signUp(){
+async function signUp(btn){
   const name=document.getElementById('signup-name').value.trim();
   const email=document.getElementById('signup-email').value.trim();
   const password=document.getElementById('signup-password').value;
   if(!name||!email||!password){showAuthError('Please fill in all fields.');return;}
   if(password.length<6){showAuthError('Password must be at least 6 characters.');return;}
-  const btn=event.target;btn.disabled=true;btn.textContent='Creating account…';
+  btn.disabled=true;btn.textContent='Creating account…';
 
-  if(currentAccountType==='student'){
-    const year=parseInt(document.getElementById('signup-year').value);
-    const tier=document.querySelector('input[name="signup-tier"]:checked')?.value||'F';
-    const classCode=document.getElementById('signup-class-code').value.trim().toUpperCase();
-    let classId=null;
-    if(classCode){
-      const{data:cls}=await db.from('classes').select('id').eq('class_code',classCode).single();
-      if(!cls){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError('Class code not found. Check with your teacher or leave it blank.');return;}
-      classId=cls.id;
-    }
-    const{data:authData,error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year,tier,role:'student'}}});
-    if(error){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError(error.message);return;}
-    if(authData.user){
-      await db.from('profiles').upsert({id:authData.user.id,name,email,year_group:year,tier,role:'student'});
-      if(classId)await db.from('class_members').insert({class_id:classId,student_id:authData.user.id});
-      await db.auth.signInWithPassword({email,password});
-    }
+  try{
+    if(_signupRole==='student'){
+      const year=parseInt(document.getElementById('signup-year').value)||10;
+      const tier=document.querySelector('input[name="signup-tier"]:checked')?.value||'F';
+      const classCode=document.getElementById('signup-class-code').value.trim().toUpperCase();
+      let classId=null;
+      if(classCode){
+        const{data:cls}=await db.from('classes').select('id').eq('class_code',classCode).single();
+        if(!cls){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError('Class code not found. Leave it blank or check with your teacher.');return;}
+        classId=cls.id;
+      }
+      const{data:auth,error}=await db.auth.signUp({email,password,options:{data:{name,year_group:year,tier,role:'student'}}});
+      if(error){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError(error.message);return;}
+      if(auth.user){
+        await db.from('profiles').upsert({id:auth.user.id,name,email,year_group:year,tier,role:'student'});
+        if(classId)await db.from('class_members').insert({class_id:classId,student_id:auth.user.id});
+        await db.auth.signInWithPassword({email,password});
+      }
 
-  } else if(currentAccountType==='teacher'){
-    const{data:authData,error}=await db.auth.signUp({email,password,options:{data:{name,role:'teacher'}}});
-    if(error){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError(error.message);return;}
-    if(authData.user){
-      const classCode=name.substring(0,3).toUpperCase()+'-'+Math.random().toString(36).substring(2,5).toUpperCase();
-      await db.from('profiles').upsert({id:authData.user.id,name,email,role:'teacher'});
-      await db.from('classes').insert({teacher_id:authData.user.id,class_code:classCode,class_name:name+"'s Class"});
-      await db.auth.signInWithPassword({email,password});
-    }
+    } else if(_signupRole==='teacher'){
+      const{data:auth,error}=await db.auth.signUp({email,password,options:{data:{name,role:'teacher'}}});
+      if(error){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError(error.message);return;}
+      if(auth.user){
+        const code=name.replace(/\s+/g,'').substring(0,3).toUpperCase()+'-'+Math.random().toString(36).substring(2,5).toUpperCase();
+        await db.from('profiles').upsert({id:auth.user.id,name,email,role:'teacher'});
+        await db.from('classes').insert({teacher_id:auth.user.id,class_code:code,class_name:name+"'s Class"});
+        await db.auth.signInWithPassword({email,password});
+      }
 
-  } else if(currentAccountType==='parent'){
-    const parentCode=document.getElementById('signup-parent-code').value.trim().toUpperCase();
-    if(!parentCode){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError("Please enter your child's parent code.");return;}
-    const{data:student}=await db.from('profiles').select('id,name').eq('parent_code',parentCode).single();
-    if(!student){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError('Code not found. Ask your child to check their Profile page.');return;}
-    const{data:authData,error}=await db.auth.signUp({email,password,options:{data:{name,role:'parent'}}});
-    if(error){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError(error.message);return;}
-    if(authData.user){
-      await db.from('profiles').upsert({id:authData.user.id,name,email,role:'parent'});
-      await db.from('parent_profiles').insert({user_id:authData.user.id,student_id:student.id,parent_name:name,parent_email:email});
-      await db.auth.signInWithPassword({email,password});
+    } else if(_signupRole==='parent'){
+      const code=document.getElementById('signup-parent-code').value.trim().toUpperCase();
+      if(!code){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError("Please enter your child's parent code.");return;}
+      const{data:student}=await db.from('profiles').select('id,name').eq('parent_code',code).single();
+      if(!student){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError('Code not found. Ask your child to check their Profile page.');return;}
+      const{data:auth,error}=await db.auth.signUp({email,password,options:{data:{name,role:'parent'}}});
+      if(error){btn.disabled=false;btn.innerHTML='Create Account &#x2192;';showAuthError(error.message);return;}
+      if(auth.user){
+        await db.from('profiles').upsert({id:auth.user.id,name,email,role:'parent'});
+        await db.from('parent_profiles').insert({user_id:auth.user.id,student_id:student.id,parent_name:name,parent_email:email});
+        await db.auth.signInWithPassword({email,password});
+      }
     }
-  }
+  }catch(e){showAuthError('Something went wrong. Please try again.');}
   btn.disabled=false;btn.innerHTML='Create Account &#x2192;';
 }
 
@@ -954,10 +945,10 @@ async function signOut(){
 async function onAuthStateChange(user){
   if(user){
     currentUser=user;
-    // Fetch profile — role column is the single source of truth
+    // Single source of truth — read role from profiles table
     const{data:profile}=await db.from('profiles').select('*').eq('id',user.id).single();
     if(!profile){
-      // No profile row — sign them out cleanly
+      // No profile row yet — sign out cleanly to avoid broken state
       await db.auth.signOut();
       return;
     }
@@ -968,12 +959,12 @@ async function onAuthStateChange(user){
 
     if(isParent){
       // Load parent portal
-      const{data:parentRow}=await db.from('parent_profiles').select('*').eq('user_id',user.id).single();
-      if(parentRow){
+      const{data:link}=await db.from('parent_profiles').select('student_id').eq('user_id',user.id).single();
+      if(link){
         document.getElementById('auth-screen').style.display='none';
         document.getElementById('main-app').style.display='none';
         document.getElementById('parent-portal').style.display='block';
-        await loadParentPortal(parentRow.student_id);
+        await loadParentPortal(link.student_id);
         return;
       }
     }
@@ -983,7 +974,7 @@ async function onAuthStateChange(user){
     if(!supabaseLoaded){
       document.getElementById('auth-screen').style.display='none';
       document.getElementById('main-app').style.display='block';
-      try{await loadFromSupabase();}catch(e){console.error('loadFromSupabase error:',e);}
+      try{await loadFromSupabase();}catch(e){console.error(e);}
       loadTodayDone();
       supabaseLoaded=true;
       showScreen('home');
@@ -1004,66 +995,53 @@ async function onAuthStateChange(user){
 }
 
 // ── PARENT PORTAL ──
-
 async function loadParentPortal(studentId){
-  const[{data:sp},{data:state},{data:progress}]=await Promise.all([
+  const[{data:sp},{data:st},{data:prog}]=await Promise.all([
     db.from('profiles').select('*').eq('id',studentId).single(),
     db.from('app_state').select('*').eq('user_id',studentId).single(),
     db.from('card_progress').select('*').eq('user_id',studentId)
   ]);
-  if(!sp){document.getElementById('pp-student-name').textContent='Student not found';return;}
-  document.getElementById('pp-student-name').textContent=sp.name||'Your child';
-  document.getElementById('pp-student-meta').textContent='Year '+(sp.year_group||'?')+' · '+(sp.tier==='H'?'Higher':'Foundation')+' Tier';
-  const prog=progress||[];const st=state||{};
-  const acc=prog.length?Math.round(prog.filter(p=>p.last_grade>=2).length/prog.length*100):0;
-  const lvl=Math.floor((st.xp||0)/200)+1;
-  document.getElementById('pp-stats-grid').innerHTML=
-    '<div class="dash-card"><div class="dash-lbl">🔥 Streak</div><div class="dash-big" style="color:#F97316">'+(st.streak||0)+'</div><div class="dash-sub">days in a row</div></div>'+
-    '<div class="dash-card"><div class="dash-lbl">⚡ XP</div><div class="dash-big" style="color:#6366F1">'+(st.xp||0)+'</div><div class="dash-sub">earned</div></div>'+
-    '<div class="dash-card"><div class="dash-lbl">📚 Cards</div><div class="dash-big" style="color:#8B5CF6">'+(st.total_cards||0)+'</div><div class="dash-sub">reviewed</div></div>'+
-    '<div class="dash-card"><div class="dash-lbl">✅ Accuracy</div><div class="dash-big" style="color:#22C55E">'+acc+'%</div><div class="dash-sub">good + easy</div></div>'+
+  if(!sp){document.getElementById('pp-name').textContent='Student not found';return;}
+  document.getElementById('pp-name').textContent=sp.name||'Your child';
+  document.getElementById('pp-meta').textContent='Year '+(sp.year_group||'?')+' · '+(sp.tier==='H'?'Higher':'Foundation');
+  const p=prog||[],s=st||{};
+  const acc=p.length?Math.round(p.filter(x=>x.last_grade>=2).length/p.length*100):0;
+  const lvl=Math.floor((s.xp||0)/200)+1;
+  document.getElementById('pp-stats').innerHTML=
+    '<div class="dash-card"><div class="dash-lbl">🔥 Streak</div><div class="dash-big" style="color:#F97316">'+(s.streak||0)+'</div><div class="dash-sub">days</div></div>'+
+    '<div class="dash-card"><div class="dash-lbl">⚡ XP</div><div class="dash-big" style="color:#6366F1">'+(s.xp||0)+'</div><div class="dash-sub">earned</div></div>'+
+    '<div class="dash-card"><div class="dash-lbl">📚 Cards</div><div class="dash-big" style="color:#8B5CF6">'+(s.total_cards||0)+'</div><div class="dash-sub">reviewed</div></div>'+
+    '<div class="dash-card"><div class="dash-lbl">✅ Accuracy</div><div class="dash-big" style="color:#22C55E">'+acc+'%</div><div class="dash-sub">good+easy</div></div>'+
     '<div class="dash-card"><div class="dash-lbl">🏆 Level</div><div class="dash-big" style="color:#EAB308">'+lvl+'</div><div class="dash-sub">current</div></div>';
-  const unlocks=st.unlocks||{};
-  const subjects={biology:{icon:'🌿',col:'#22C55E',topics:['b1','b2','b3','b4','b5','b6','b7']},chemistry:{icon:'⚗️',col:'#F97316',topics:['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10']},physics:{icon:'⚡',col:'#6366F1',topics:['p1','p2','p3','p4','p5','p6','p7']}};
-  let topicHtml='<div class="teacher-section" style="margin-bottom:12px"><h3>📈 Topics Unlocked</h3>';
-  Object.entries(subjects).forEach(([subj,info])=>{
-    const unlocked=info.topics.filter(t=>(unlocks[subj]||{})[t]).length;
-    const pct=Math.round(unlocked/info.topics.length*100);
-    topicHtml+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px"><span>'+info.icon+' '+subj.charAt(0).toUpperCase()+subj.slice(1)+'</span><span>'+unlocked+'/'+info.topics.length+'</span></div><div style="height:8px;background:#F1F5F9;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+info.col+';border-radius:99px"></div></div></div>';
+  // Topic bars
+  const unlocks=s.unlocks||{};
+  const subs={biology:{icon:'🌿',col:'#22C55E',t:['b1','b2','b3','b4','b5','b6','b7']},chemistry:{icon:'⚗️',col:'#F97316',t:['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10']},physics:{icon:'⚡',col:'#6366F1',t:['p1','p2','p3','p4','p5','p6','p7']}};
+  let th='<div class="teacher-section" style="margin-bottom:12px"><h3>📈 Topics Unlocked</h3>';
+  Object.entries(subs).forEach(([k,v])=>{
+    const u=v.t.filter(t=>(unlocks[k]||{})[t]).length;
+    const pct=Math.round(u/v.t.length*100);
+    th+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px"><span>'+v.icon+' '+k.charAt(0).toUpperCase()+k.slice(1)+'</span><span>'+u+'/'+v.t.length+'</span></div><div style="height:8px;background:#F1F5F9;border-radius:99px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+v.col+';border-radius:99px"></div></div></div>';
   });
-  topicHtml+='</div>';
-  document.getElementById('pp-topics').innerHTML=topicHtml;
-  const topicStats={};
-  prog.forEach(p=>{
-    if(!topicStats[p.topic_code])topicStats[p.topic_code]={good:0,total:0,subject:p.subject};
-    topicStats[p.topic_code].total++;
-    if(p.last_grade>=2)topicStats[p.topic_code].good++;
-  });
-  const strengths=[],struggles=[];
-  Object.entries(topicStats).forEach(([code,s])=>{
-    if(s.total<3)return;
-    const pct=s.good/s.total;
-    const icon=s.subject==='biology'?'🌿':s.subject==='chemistry'?'⚗️':'⚡';
-    if(pct>=0.8)strengths.push(icon+' '+code.toUpperCase()+' ('+Math.round(pct*100)+'%)');
-    else if(pct<0.6)struggles.push(icon+' '+code.toUpperCase()+' ('+Math.round(pct*100)+'%)');
-  });
-  let insightHtml='';
-  if(strengths.length)insightHtml+='<div class="teacher-section" style="margin-bottom:12px;border-left:4px solid #22C55E"><h3>💪 Strong Areas</h3>'+strengths.map(s=>'<div style="font-size:13px;font-weight:700;color:#15803D;padding:2px 0">✅ '+s+'</div>').join('')+'</div>';
-  if(struggles.length)insightHtml+='<div class="teacher-section" style="margin-bottom:12px;border-left:4px solid #F59E0B"><h3>🎯 Needs Focus</h3>'+struggles.map(s=>'<div style="font-size:13px;font-weight:700;color:#92400E;padding:2px 0">📌 '+s+'</div>').join('')+'<p style="font-size:12px;font-weight:600;color:#64748B;margin-top:6px">Ask them to explain these topics to you!</p></div>';
-  if(!prog.length)insightHtml='<div class="teacher-section" style="text-align:center;padding:24px"><div style="font-size:28px;margin-bottom:8px">🌱</div><div style="font-weight:800;color:#64748B">Just getting started!</div><div style="font-size:12px;color:#94A3B8;font-weight:600;margin-top:4px">Insights appear as they study more cards</div></div>';
-  document.getElementById('pp-insights').innerHTML=insightHtml;
-  const grades={0:'Again 🔴',1:'Hard 🟠',2:'Good 🟢',3:'Easy 🌟'};
-  const sorted=[...prog].sort((a,b)=>new Date(b.seen_at||0)-new Date(a.seen_at||0));
-  document.getElementById('pp-history-list').innerHTML=sorted.slice(0,80).map(p=>{
-    const subj=p.subject||'';
-    const icon=subj==='biology'?'🌿':subj==='chemistry'?'⚗️':'⚡';
-    const card=CARD_DATA[subj]&&CARD_DATA[subj][p.topic_code]?CARD_DATA[subj][p.topic_code].cards.find(c=>c.id===p.card_id):null;
-    const q=card?card.q.replace(/\*\*/g,'').replace(/\*(.*?)\*/g,'$1'):'Card';
-    const date=p.seen_at?new Date(p.seen_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—';
-    return '<div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)">'+
-      '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;font-weight:800;color:#64748B">'+icon+' '+p.topic_code.toUpperCase()+'</span><span style="font-size:11px;font-weight:800;color:#94A3B8">'+date+'</span></div>'+
-      '<div style="font-size:13px;font-weight:700;color:#0F172A;line-height:1.4;margin-bottom:5px">'+q+'</div>'+
-      '<span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;background:#F1F5F9;color:#475569">'+(p.last_grade!=null?grades[p.last_grade]:'—')+'</span></div>';
+  document.getElementById('pp-topics').innerHTML=th+'</div>';
+  // Insights
+  const ts={};
+  p.forEach(x=>{if(!ts[x.topic_code])ts[x.topic_code]={g:0,n:0,s:x.subject};ts[x.topic_code].n++;if(x.last_grade>=2)ts[x.topic_code].g++;});
+  let str=[],strug=[];
+  Object.entries(ts).forEach(([c,v])=>{if(v.n<3)return;const r=v.g/v.n;const i=v.s==='biology'?'🌿':v.s==='chemistry'?'⚗️':'⚡';if(r>=0.8)str.push(i+' '+c.toUpperCase()+' ('+Math.round(r*100)+'%)');else if(r<0.6)strug.push(i+' '+c.toUpperCase()+' ('+Math.round(r*100)+'%)');});
+  let ih='';
+  if(str.length)ih+='<div class="teacher-section" style="margin-bottom:12px;border-left:4px solid #22C55E"><h3>💪 Strong Areas</h3>'+str.map(x=>'<div style="font-size:13px;font-weight:700;color:#15803D;padding:2px 0">✅ '+x+'</div>').join('')+'</div>';
+  if(strug.length)ih+='<div class="teacher-section" style="margin-bottom:12px;border-left:4px solid #F59E0B"><h3>🎯 Needs Focus</h3>'+strug.map(x=>'<div style="font-size:13px;font-weight:700;color:#92400E;padding:2px 0">📌 '+x+'</div>').join('')+'<p style="font-size:12px;font-weight:600;color:#64748B;margin-top:6px">Ask them to explain these topics to you!</p></div>';
+  if(!p.length)ih='<div class="teacher-section" style="text-align:center;padding:24px"><div style="font-size:28px;margin-bottom:8px">🌱</div><div style="font-weight:800;color:#64748B">Just getting started!</div></div>';
+  document.getElementById('pp-insights').innerHTML=ih;
+  // History
+  const gl={0:'Again 🔴',1:'Hard 🟠',2:'Good 🟢',3:'Easy 🌟'};
+  const sorted=[...p].sort((a,b)=>new Date(b.seen_at||0)-new Date(a.seen_at||0));
+  document.getElementById('pp-history').innerHTML=sorted.slice(0,80).map(x=>{
+    const si=x.subject==='biology'?'🌿':x.subject==='chemistry'?'⚗️':'⚡';
+    const cd=CARD_DATA[x.subject]?.[x.topic_code]?.cards?.find(c=>c.id===x.card_id);
+    const q=cd?cd.q.replace(/\*\*/g,'').replace(/\*(.*?)\*/g,'$1'):'Card';
+    const dt=x.seen_at?new Date(x.seen_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—';
+    return '<div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;font-weight:800;color:#64748B">'+si+' '+x.topic_code.toUpperCase()+'</span><span style="font-size:11px;font-weight:800;color:#94A3B8">'+dt+'</span></div><div style="font-size:13px;font-weight:700;color:#0F172A;line-height:1.4;margin-bottom:5px">'+q+'</div><span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;background:#F1F5F9;color:#475569">'+(x.last_grade!=null?gl[x.last_grade]:'—')+'</span></div>';
   }).join('')||'<div style="text-align:center;padding:32px;color:#94A3B8;font-weight:700">No cards studied yet</div>';
 }
 
@@ -1074,59 +1052,46 @@ function switchPPTab(tab){
   });
 }
 
-async function parentSignOut(){
+async function ppSignOut(){
   currentUser=null;isParent=false;
   await db.auth.signOut();
   document.getElementById('parent-portal').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
 }
 
-// ── PARENT CODE (student profile) ──
-function generateParentCode(userId){
-  return userId.replace(/-/g,'').substring(0,5).toUpperCase();
-}
+// Parent code helpers
+function _makeParentCode(uid){return uid.replace(/-/g,'').substring(0,5).toUpperCase();}
 
 async function ensureParentCode(){
   if(!currentUser||isTeacher||isParent)return null;
-  if(userProfile&&userProfile.parent_code)return userProfile.parent_code;
-  const code=generateParentCode(currentUser.id);
+  if(userProfile?.parent_code)return userProfile.parent_code;
+  const code=_makeParentCode(currentUser.id);
   await db.from('profiles').update({parent_code:code}).eq('id',currentUser.id);
   if(userProfile)userProfile.parent_code=code;
   return code;
 }
 
 async function copyParentCode(){
-  const code=await ensureParentCode();
-  if(!code)return;
-  const msg='Hi! I\'m using ScienceSpark to revise for my GCSEs 🔬\n\nYou can follow my progress by creating a free Parent account at:\n'+window.location.href+'\n\nClick "Sign Up", select "👨‍👩‍👧 Parent", and enter my code: '+code;
-  try{
-    await navigator.clipboard.writeText(msg);
-    const btn=document.getElementById('copy-parent-btn');
-    btn.textContent='✅ Copied!';setTimeout(()=>{btn.textContent='📋 Copy Message for Parent';},2500);
-  }catch(e){alert('Your parent code is: '+code);}
+  const code=await ensureParentCode();if(!code)return;
+  const msg='Hi! I\'m using ScienceSpark to revise for my GCSEs 🔬\n\nYou can follow my progress by creating a free Parent account at:\n'+window.location.href+'\n\nClick "Sign Up", choose "👨‍👩‍👧 Parent", and enter my code: '+code;
+  try{await navigator.clipboard.writeText(msg);const b=document.getElementById('copy-parent-btn');b.textContent='✅ Copied!';setTimeout(()=>{b.textContent='📋 Copy Message for Parent';},2500);}
+  catch(e){alert('Your parent code is: '+code);}
 }
 
-// ── CLASS CODE (teacher profile) ──
+// Teacher class code helpers
 async function loadTeacherClassCode(){
   if(!isTeacher)return;
   const{data:cls}=await db.from('classes').select('class_code').eq('teacher_id',currentUser.id).single();
-  if(cls){
-    document.getElementById('teacher-class-code-display').textContent=cls.class_code;
-    document.getElementById('teacher-class-section').style.display='block';
-  }
+  if(cls){document.getElementById('teacher-class-code-display').textContent=cls.class_code;}
 }
 
 async function copyClassCode(){
   const code=document.getElementById('teacher-class-code-display').textContent;
   if(!code||code==='—')return;
-  const msg='Join my ScienceSpark class! 🔬\n\nSign up at: '+window.location.href+'\n\nSelect "🎓 Student" and enter class code: '+code;
-  try{
-    await navigator.clipboard.writeText(msg);
-    alert('✅ Class code message copied! Share it with your students.');
-  }catch(e){alert('Your class code is: '+code);}
+  const msg='Join my ScienceSpark class 🔬\n\nSign up at: '+window.location.href+'\n\nChoose "🎓 Student" and enter class code: '+code;
+  try{await navigator.clipboard.writeText(msg);alert('✅ Copied! Share this with your students.');}
+  catch(e){alert('Class code: '+code);}
 }
-
-// ── PARENT/TEACHER PORTAL END ──
 
 // ── SRS ENGINE ──
 function getCardState(id){
@@ -1859,10 +1824,10 @@ async function teacherResetPassword(){
 
 // ── PROFILE ──
 function showProfileScreen(){
-  const name=userProfile&&userProfile.name?userProfile.name.replace(/\s*\(teacher account\)\s*/i,'').trim():'—';
+  const name=userProfile?.name?.replace(/\s*\(teacher account\)\s*/i,'').trim()||'—';
   document.getElementById('profile-name').textContent=name;
-  document.getElementById('profile-email').textContent=currentUser?currentUser.email:'—';
-  document.getElementById('profile-year').textContent=userProfile&&userProfile.year_group?'Year '+userProfile.year_group:'—';
+  document.getElementById('profile-email').textContent=currentUser?.email||'—';
+  document.getElementById('profile-year').textContent=userProfile?.year_group?'Year '+userProfile.year_group:'—';
   document.getElementById('profile-tier').textContent=APP.tier==='H'?'Higher (Foundation + Higher cards)':'Foundation (Foundation cards only)';
   document.getElementById('profile-new-name').value='';
   document.getElementById('profile-current-password').value='';
@@ -1870,15 +1835,13 @@ function showProfileScreen(){
   document.getElementById('profile-confirm-password').value='';
   document.getElementById('profile-name-msg').style.display='none';
   document.getElementById('profile-password-msg').style.display='none';
-  // Show correct section based on role
-  const parentSection=document.getElementById('parent-code-section');
-  const teacherSection=document.getElementById('teacher-class-section');
-  if(parentSection)parentSection.style.display=(!isTeacher&&!isParent)?'block':'none';
-  if(teacherSection)teacherSection.style.display=isTeacher?'block':'none';
+  // Show correct code section
+  const ps=document.getElementById('parent-code-section');
+  const ts=document.getElementById('teacher-code-section');
+  if(ps)ps.style.display=(!isTeacher&&!isParent)?'block':'none';
+  if(ts)ts.style.display=isTeacher?'block':'none';
   if(!isTeacher&&!isParent){
-    ensureParentCode().then(code=>{
-      if(code)document.getElementById('parent-code-display').textContent=code;
-    });
+    ensureParentCode().then(c=>{if(c)document.getElementById('parent-code-display').textContent=c;});
   }
   if(isTeacher)loadTeacherClassCode();
 }
